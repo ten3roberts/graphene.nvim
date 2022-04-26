@@ -64,7 +64,7 @@ function M:reload(callback)
   end))
 end
 
-function M:display()
+function M:display(focus)
   local config = require "graphene.config"
   local bufnr = self.bufnr
   a.nvim_buf_set_option(bufnr, "modifiable", true)
@@ -76,6 +76,16 @@ function M:display()
 
   a.nvim_buf_set_lines(bufnr, 0, -1, true, lines)
   a.nvim_buf_set_option(bufnr, "modifiable", false)
+
+end
+
+function M:focus(name)
+  for i, v in ipairs(self.items) do
+    if v.name == name then
+      fn.setpos(".", { 0, i, 0, 0 })
+      return
+    end
+  end
 end
 
 ---@return Item

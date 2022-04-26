@@ -28,8 +28,11 @@ end
 
 ---@param ctx graphene.context
 function M.up(ctx)
+  local cur = fn.fnamemodify(ctx.dir, ":p:h:t")
   local parent = fn.fnamemodify(ctx.dir, ":p:h:h")
-  ctx:set_dir(parent)
+  ctx:set_dir(parent, function()
+    ctx:focus(cur)
+  end)
 end
 
 ---@param ctx graphene.context
