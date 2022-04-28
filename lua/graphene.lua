@@ -11,6 +11,7 @@ function M.init(dir)
   Context.new(dir, vim.schedule_wrap(function(ctx)
 
     ctx:display()
+
     M.setup_mappings(ctx)
 
     a.nvim_win_set_buf(0, ctx.bufnr)

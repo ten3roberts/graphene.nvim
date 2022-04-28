@@ -2,9 +2,8 @@ local actions = require "graphene.actions"
 ---@class graphene.config
 ---@field format_item function
 local defaults = {
-  format_item = function(item)
-    return "- " .. item.name .. (item.type == "directory" and "/" or "")
-  end,
+  format_item = require "graphene.icons".format,
+  highlight_items = require "graphene.icons".highlight,
   mappings = {
     ["<CR>"] = actions.edit,
     ["<Tab>"] = actions.edit,

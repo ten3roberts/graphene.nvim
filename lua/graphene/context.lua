@@ -75,6 +75,10 @@ function M:display(focus)
   end, self.items)
 
   a.nvim_buf_set_lines(bufnr, 0, -1, true, lines)
+
+  local hi = config.options.highlight_items;
+  hi(bufnr, self.items)
+
   a.nvim_buf_set_option(bufnr, "modifiable", false)
 
 end
