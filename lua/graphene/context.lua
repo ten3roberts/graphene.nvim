@@ -1,9 +1,11 @@
 local util = require "graphene.util"
 
 ---@class graphene.context
----@field items List<Item>
+---@field items table
 ---@field dir string
 ---@field bufnr number
+---@field old_buf number
+---@field old_win number
 local M = {}
 
 ---@class Item
@@ -20,14 +22,26 @@ local fn = vim.fn
 --- Reads files from the provided directory
 function M.new(dir, callback)
   util.readdir(dir, vim.schedule_wrap(function(items)
+    local config = require "graphene.config"
+
+    table.sort(items, config.sort)
+
+    local old_buf = a.nvim_get_current_buf()
+    local old_win = a.nvim_get_current_win()
     local bufnr = a.nvim_create_buf(false, true)
 
     a.nvim_buf_set_option(bufnr, "filetype", "graphene")
 
+    if not dir:find("/$") then
+      dir = dir .. "/"
+    end
+
     local ctx = {
       items = items,
       dir = dir,
-      bufnr = bufnr
+      bufnr = bufnr,
+      old_buf = old_buf,
+      old_win = old_win,
     }
 
     contexts[bufnr] = ctx
@@ -36,6 +50,13 @@ function M.new(dir, callback)
 
     callback(ctx)
   end))
+end
+
+function M:delete()
+  a.nvim_set_current_win(self.old_win)
+  a.nvim_set_current_buf(self.old_buf)
+  a.nvim_buf_delete(self.bufnr, {})
+  contexts[self.bufnr] = nil
 end
 
 ---@return graphene.context|nil
@@ -50,6 +71,8 @@ function M:set_dir(dir, callback)
   self.dir = dir
 
   util.readdir(dir, vim.schedule_wrap(function(items)
+    local config = require "graphene.config"
+    table.sort(items, config.sort)
     self.items = items
     self:display()
     if callback then callback(self) end
@@ -58,6 +81,8 @@ end
 
 function M:reload(callback)
   util.readdir(self.dir, vim.schedule_wrap(function(items)
+    local config = require "graphene.config"
+    table.sort(items, config.sort)
     self.items = items
     self:display()
     if callback then callback(self) end
