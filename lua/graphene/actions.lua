@@ -10,6 +10,8 @@ function M.edit(ctx, cmd)
 
   if ctx then
     local cur, path = ctx:cur_item()
+    if not cur then return end
+
     if cur.type == "directory" and (cmd == "edit") then
       ctx:set_dir(path)
     else
@@ -42,7 +44,11 @@ end
 
 ---@param ctx graphene.context
 function M.open(ctx)
-  vim.ui.input({ prompt = "Path: " }, function(name)
+  vim.ui.input({ prompt = "Name: " }, function(name)
+    if not name then
+      return
+    end
+
     local path = ctx.dir .. name
     if string.find(name, "/$") then
       fn.mkdir(path, "p")
@@ -57,6 +63,8 @@ end
 function M.rename(ctx)
   local cur, path = ctx:cur_item()
   local default = ""
+
+  if not cur then return end
 
   local opts = {
     completion = "dir",
@@ -107,6 +115,7 @@ end
 function M.delete(ctx, force)
   local cur, path = ctx:cur_item()
 
+  if not cur then return end
   if not force and vim.fn.confirm("Delete?: " .. path, "&Yes\n&No", 1) ~= 1 then
     return
   end

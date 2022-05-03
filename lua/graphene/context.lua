@@ -1,4 +1,5 @@
 local util = require "graphene.util"
+local config = require "graphene.config"
 
 ---@class graphene.context
 ---@field items table
@@ -22,8 +23,6 @@ local fn = vim.fn
 --- Reads files from the provided directory
 function M.new(dir, callback)
   util.readdir(dir, vim.schedule_wrap(function(items)
-    local config = require "graphene.config"
-
     table.sort(items, config.sort)
 
     local old_buf = a.nvim_get_current_buf()
@@ -71,7 +70,6 @@ function M:set_dir(dir, callback)
   self.dir = dir
 
   util.readdir(dir, vim.schedule_wrap(function(items)
-    local config = require "graphene.config"
     table.sort(items, config.sort)
     self.items = items
     self:display()
@@ -81,7 +79,6 @@ end
 
 function M:reload(callback)
   util.readdir(self.dir, vim.schedule_wrap(function(items)
-    local config = require "graphene.config"
     table.sort(items, config.sort)
     self.items = items
     self:display()
@@ -90,14 +87,18 @@ function M:reload(callback)
 end
 
 function M:display(focus)
-  local config = require "graphene.config"
   local bufnr = self.bufnr
+
   a.nvim_buf_set_option(bufnr, "modifiable", true)
   -- Fill
   local fmt = config.format_item;
   local lines = vim.tbl_map(function(item)
     return fmt(item)
   end, self.items)
+
+  if #lines == 0 then
+    lines = { " --- empty ---" }
+  end
 
   a.nvim_buf_set_lines(bufnr, 0, -1, true, lines)
 
