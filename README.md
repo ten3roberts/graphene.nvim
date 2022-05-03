@@ -41,3 +41,23 @@ require "graphene".setup {
     ["D"] = actions.delete,
   }
 ```
+
+## Usage
+
+```vim
+:edit . " Open cwd
+:edit /path/to/directory
+```
+
+or
+
+```vim
+Graphene " Open directory of current file
+Graphene . " Open cwd
+```
+
+Graphene is also accessible through a lua api, if desired.
+
+```lua
+lua require"graphene".init([path])
+```

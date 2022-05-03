@@ -57,7 +57,8 @@ function M.setup(opts)
       local args = o.args ~= "" and o.args
       require "graphene".init(args)
     end,
-    { nargs = "?", desc = "Open graphene file browser", complete = "file" })
+    { nargs = "?", desc = "Open graphene file browser", complete = "file" }
+  )
 end
 
 return M;
