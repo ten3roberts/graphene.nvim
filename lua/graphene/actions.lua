@@ -111,6 +111,12 @@ function M.rename(ctx)
 end
 
 ---@param ctx graphene.context
+function M.toggle_hidden(ctx)
+  ctx.show_hidden = not ctx.show_hidden
+  ctx:reload()
+end
+
+---@param ctx graphene.context
 function M.delete(ctx, force)
   local cur, path = ctx:cur_item()
 

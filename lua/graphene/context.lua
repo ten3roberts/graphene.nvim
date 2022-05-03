@@ -7,6 +7,7 @@ local config = require "graphene.config"
 ---@field bufnr number
 ---@field old_buf number
 ---@field old_win number
+---@field show_hidden boolean
 local M = {}
 
 ---@class Item
@@ -26,7 +27,7 @@ local history = {}
 function M.new(dir, callback)
   dir = vim.loop.fs_realpath(dir)
 
-  util.readdir(dir, vim.schedule_wrap(function(items)
+  util.readdir(dir, config.show_hidden, vim.schedule_wrap(function(items)
     table.sort(items, config.sort)
 
     local old_buf = a.nvim_get_current_buf()
@@ -45,6 +46,7 @@ function M.new(dir, callback)
       bufnr = bufnr,
       old_buf = old_buf,
       old_win = old_win,
+      show_hidden = config.show_hidden
     }
 
     contexts[bufnr] = ctx
@@ -84,7 +86,7 @@ function M:set_dir(dir, focus, callback)
   self:add_history()
   self.dir = dir
 
-  util.readdir(dir, vim.schedule_wrap(function(items)
+  util.readdir(dir, self.show_hidden, vim.schedule_wrap(function(items)
     table.sort(items, config.sort)
     self.items = items
     self:display(focus)
@@ -93,7 +95,7 @@ function M:set_dir(dir, focus, callback)
 end
 
 function M:reload(callback)
-  util.readdir(self.dir, vim.schedule_wrap(function(items)
+  util.readdir(self.dir, self.show_hidden, vim.schedule_wrap(function(items)
     table.sort(items, config.sort)
     self.items = items
     self:display()

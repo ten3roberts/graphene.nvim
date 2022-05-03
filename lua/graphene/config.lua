@@ -15,6 +15,7 @@ local defaults = {
   highlight_items = require "graphene.icons".highlight,
   sort = default_sort,
   override_netrw = true,
+  show_hidden = false,
   mappings = {
     ["<CR>"] = actions.edit,
     ["<Tab>"] = actions.edit,
@@ -27,6 +28,7 @@ local defaults = {
     ["i"] = actions.open,
     ["r"] = actions.rename,
     ["D"] = actions.delete,
+    ["."] = actions.toggle_hidden,
   }
 }
 
