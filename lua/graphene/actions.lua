@@ -1,3 +1,4 @@
+local util = require "graphene.util"
 local M = {}
 local a = vim.api
 local uv = vim.loop
@@ -32,14 +33,12 @@ end
 function M.up(ctx)
   local cur = fn.fnamemodify(ctx.dir, ":p:h:t")
   local parent = fn.fnamemodify(ctx.dir, ":p:h:h")
-  ctx:set_dir(parent, function()
-    ctx:focus(cur)
-  end)
+  ctx:set_dir(parent, cur)
 end
 
 ---@param ctx graphene.context
 function M.quit(ctx)
-  ctx:delete()
+  ctx:quit()
 end
 
 ---@param ctx graphene.context
@@ -115,22 +114,39 @@ end
 function M.delete(ctx, force)
   local cur, path = ctx:cur_item()
 
+
   if not cur then return end
-  if not force and vim.fn.confirm("Delete?: " .. path, "&Yes\n&No", 1) ~= 1 then
-    return
+
+  local function delete()
+    if fn.delete(path, "rf") ~= 0 then
+      vim.notify("Failed to delete " .. path, vim.log.levels.ERROR)
+    end
+    local buf = fn.bufnr(vim.fn.fnameescape(path))
+
+    if buf ~= -1 then
+      a.nvim_buf_delete(buf, {})
+    end
+
+    ctx:reload()
   end
 
-  if fn.delete(path, "rf") ~= 0 then
-    vim.notify("Failed to delete " .. path, vim.log.levels.ERROR)
+  local stat = uv.fs_stat(path)
+  if stat and stat.type == "directory" then
+    util.readdir(path, vim.schedule_wrap(function(items)
+      local count = #items
+      if not force and vim.fn.confirm(string.format("Delete directory %s containing %d items", path, count), "&Yes\n&No", 1) ~= 1 then
+        return
+      end
+
+      delete()
+    end))
+  else
+    if not force and vim.fn.confirm(string.format("Delete file %s", path), "&Yes\n&No", 1) ~= 1 then
+      return
+    end
+
+    delete()
   end
-
-  local buf = fn.bufnr(vim.fn.fnameescape(path))
-
-  if buf ~= -1 then
-    a.nvim_buf_delete(buf, {})
-  end
-
-  ctx:reload()
 end
 
 return M

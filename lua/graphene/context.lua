@@ -19,9 +19,13 @@ local contexts = {}
 local a = vim.api
 local fn = vim.fn
 
+local history = {}
+
 --- Create a new context (async)
 --- Reads files from the provided directory
 function M.new(dir, callback)
+  dir = vim.loop.fs_realpath(dir)
+
   util.readdir(dir, vim.schedule_wrap(function(items)
     table.sort(items, config.sort)
 
@@ -51,7 +55,8 @@ function M.new(dir, callback)
   end))
 end
 
-function M:delete()
+function M:quit()
+  self:add_history()
   a.nvim_set_current_win(self.old_win)
   a.nvim_set_current_buf(self.old_buf)
   a.nvim_buf_delete(self.bufnr, {})
@@ -64,15 +69,25 @@ function M:get(bufnr)
   return contexts[bufnr]
 end
 
+function M:add_history()
+  -- Add to history
+  local cur = self:cur_item()
+  if cur then
+    history[self.dir] = cur.name
+  end
+end
+
 --- Set dir async
-function M:set_dir(dir, callback)
-  dir = fn.fnamemodify(dir, ":p")
+function M:set_dir(dir, focus, callback)
+  dir = vim.loop.fs_realpath(dir)
+
+  self:add_history()
   self.dir = dir
 
   util.readdir(dir, vim.schedule_wrap(function(items)
     table.sort(items, config.sort)
     self.items = items
-    self:display()
+    self:display(focus)
     if callback then callback(self) end
   end))
 end
@@ -107,6 +122,10 @@ function M:display(focus)
 
   a.nvim_buf_set_option(bufnr, "modifiable", false)
 
+  focus = focus or history[self.dir]
+  if focus then
+    self:focus(focus)
+  end
 end
 
 function M:focus(name)
@@ -123,7 +142,8 @@ function M:cur_item()
   local line = fn.getpos(".")[2]
 
   local item = self.items[line]
-  return item, self.dir .. "/" .. item.name
+  if not item then return nil end
+  return item, self.dir .. "/" .. item.name, line
 end
 
 return M
