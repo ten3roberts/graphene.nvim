@@ -1,6 +1,6 @@
 # Graphene
 
-A simple simple asynchronous file explorer.
+A simple asynchronous file explorer.
 
 A developer should not be hindered by their file explorer.
 
@@ -39,6 +39,7 @@ require "graphene".setup {
     ["i"] = actions.open,
     ["r"] = actions.rename,
     ["D"] = actions.delete,
+    ["."] = actions.toggle_hidden,
   }
 ```
 
