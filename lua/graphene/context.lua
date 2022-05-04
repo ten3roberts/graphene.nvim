@@ -94,11 +94,11 @@ function M:set_dir(dir, focus, callback)
   end))
 end
 
-function M:reload(callback)
+function M:reload(callback, focus)
   util.readdir(self.dir, self.show_hidden, vim.schedule_wrap(function(items)
     table.sort(items, config.sort)
     self.items = items
-    self:display()
+    self:display(focus)
     if callback then callback(self) end
   end))
 end
@@ -146,6 +146,10 @@ function M:cur_item()
   local item = self.items[line]
   if not item then return nil end
   return item, self.dir .. "/" .. item.name, line
+end
+
+function M:path(name)
+  return self.dir .. "/" .. name
 end
 
 return M

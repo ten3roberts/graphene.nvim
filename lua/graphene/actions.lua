@@ -48,10 +48,10 @@ function M.open(ctx)
       return
     end
 
-    local path = ctx.dir .. name
+    local path = ctx:path(name)
     if string.find(name, "/$") then
       fn.mkdir(path, "p")
-      ctx:reload()
+      ctx:reload(nil, name)
     else
       vim.cmd("edit " .. fn.fnameescape(path))
     end
@@ -61,7 +61,7 @@ end
 ---@param ctx graphene.context
 function M.rename(ctx)
   local cur, path = ctx:cur_item()
-  local default = ""
+  local default = cur
 
   if not cur then return end
 
@@ -120,7 +120,6 @@ end
 function M.delete(ctx, force)
   local cur, path = ctx:cur_item()
 
-
   if not cur then return end
 
   local function delete()
@@ -138,7 +137,7 @@ function M.delete(ctx, force)
 
   local stat = uv.fs_stat(path)
   if stat and stat.type == "directory" then
-    util.readdir(path, vim.schedule_wrap(function(items)
+    util.readdir(path, true, vim.schedule_wrap(function(items)
       local count = #items
       if not force and vim.fn.confirm(string.format("Delete directory %s containing %d items", path, count), "&Yes\n&No", 1) ~= 1 then
         return
