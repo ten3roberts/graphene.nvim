@@ -28,7 +28,9 @@ local defaults = {
     ["i"] = actions.open,
     ["r"] = actions.rename,
     ["D"] = actions.delete,
-    ["."] = actions.toggle_hidden,
+    [","] = actions.toggle_selected,
+    ["y"] = actions.yank,
+    ["p"] = actions.paste,
   }
 }
 

@@ -22,7 +22,7 @@ end
 
 function M.setup_mappings(ctx)
   local function map(l, r)
-    vim.keymap.set({ "n" }, l, r, { buffer = ctx.bufnr })
+    vim.keymap.set({ "n", "v" }, l, r, { buffer = ctx.bufnr, nowait = true })
   end
 
   for k, v in pairs(config.mappings) do

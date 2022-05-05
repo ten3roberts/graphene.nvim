@@ -5,18 +5,18 @@ local uv = vim.loop
 local fn = vim.fn
 
 --- Open the item under the cursor
----@param ctx graphene.context
+---@param ctx Context
 function M.edit(ctx, cmd)
   cmd = cmd or "edit"
 
   if ctx then
-    local cur, path = ctx:cur_item()
-    if not cur then return end
+    local item = ctx:cur_item()
+    if not item then return end
 
-    if cur.type == "directory" and (cmd == "edit") then
-      ctx:set_dir(path)
+    if item.type == "directory" and (cmd == "edit") then
+      ctx:set_dir(item.path)
     else
-      vim.cmd(cmd .. " " .. fn.fnameescape(path))
+      vim.cmd(cmd .. " " .. fn.fnameescape(item.path))
     end
   end
 end
@@ -29,19 +29,19 @@ function M.vsplit(ctx)
   M.edit(ctx, "vsplit")
 end
 
----@param ctx graphene.context
+---@param ctx Context
 function M.up(ctx)
   local cur = fn.fnamemodify(ctx.dir, ":p:h:t")
   local parent = fn.fnamemodify(ctx.dir, ":p:h:h")
   ctx:set_dir(parent, cur)
 end
 
----@param ctx graphene.context
+---@param ctx Context
 function M.quit(ctx)
   ctx:quit()
 end
 
----@param ctx graphene.context
+---@param ctx Context
 function M.open(ctx)
   vim.ui.input({ prompt = "Name: " }, function(name)
     if not name then
@@ -53,12 +53,13 @@ function M.open(ctx)
       fn.mkdir(path, "p")
       ctx:reload(nil, name)
     else
+      fn.mkdir(fn.fnamemodify(path, ":p:h"), "p")
       vim.cmd("edit " .. fn.fnameescape(path))
     end
   end)
 end
 
----@param ctx graphene.context
+---@param ctx Context
 function M.rename(ctx)
   local cur, path = ctx:cur_item()
   local default = cur
@@ -110,20 +111,85 @@ function M.rename(ctx)
   end)
 end
 
----@param ctx graphene.context
+---@param ctx Context
 function M.toggle_hidden(ctx)
   ctx.show_hidden = not ctx.show_hidden
   ctx:reload()
 end
 
----@param ctx graphene.context
+---@param ctx Context
+function M.toggle_selected(ctx)
+  local cur = ctx:cur_item()
+  if a.nvim_get_mode().mode:lower() == "v" then
+    local left = fn.line(".")
+    local right = fn.line("v");
+    ctx:toggle_range(left, right)
+  else
+    if not cur then return end
+    ctx:toggle_select(cur)
+  end
+
+  ctx:reload(nil, cur)
+end
+
+---@param dst string
+---@param src string
+local function rename(src, dst)
+  vim.notify(string.format("%s => %s", src, dst))
+  if not uv.fs_rename(src, dst) then
+    vim.notify("Failed to rename " .. src .. " => " .. dst, vim.log.levels.ERROR)
+  end
+end
+
+local function copy(src, dst)
+  util.deep_copy(src, dst)
+end
+
+local clipboard = require "graphene.clipboard"
+
+---@param ctx Context
+function M.yank(ctx)
+  local items = ctx:cur_items()
+  clipboard:set(items, rename)
+  ctx:clear_selected()
+  ctx:reload()
+end
+
+---@param ctx Context
+function M.paste(ctx)
+  local action = clipboard.action
+  local dir = ctx.dir
+  for _, item in pairs(clipboard.items) do
+    local dst = dir .. "/" .. item.name
+    if util.path_exists(path) then
+      local choice = vim.fn.confirm(string.format("Destination %s already exists", dst), "&Skip\n&Rename\n&Force Replace")
+      if choice == 1 then
+      elseif choice == 2 then
+        local new_name = vim.fn.input("Enter new name: ")
+        dst = dir .. "/" .. new_name
+        action(item.path, dst)
+      elseif choice == 3 then
+        vim.fn.delete(dst)
+        action(item.path, dst)
+      end
+    else
+      action(item.path, dst)
+    end
+  end
+
+  ctx:reload()
+end
+
+---@param ctx Context
 function M.delete(ctx, force)
-  local cur, path = ctx:cur_item()
+  local cur = ctx:cur_items()
 
   if not cur then return end
 
+  local path = cur.path;
+
   local function delete()
-    if fn.delete(path, "rf") ~= 0 then
+    if fn.delete(cur.path, "rf") ~= 0 then
       vim.notify("Failed to delete " .. path, vim.log.levels.ERROR)
     end
     local buf = fn.bufnr(vim.fn.fnameescape(path))

@@ -27,19 +27,30 @@ function M.get(item)
 end
 
 local namespace = a.nvim_create_namespace("graphene-icons")
+local clipboard = require("graphene.clipboard")
 
-function M.highlight(bufnr, files)
+---@param ctx Context
+function M.highlight(ctx)
+  local bufnr = ctx.bufnr
   a.nvim_buf_clear_namespace(bufnr, namespace, 0, -1)
 
-  for i, file in ipairs(files) do
-    local len = #file.icon.icon
-    a.nvim_buf_add_highlight(bufnr, 0, file.icon.hl, i - 1, 0, len)
+  for i, item in ipairs(ctx.items) do
+    local icon = item.icon.icon;
+    local len = #icon
+    a.nvim_buf_add_highlight(bufnr, namespace, item.icon.hl, i - 1, 0, len)
+    print(item.path)
+    if ctx:is_selected(item) then
+      a.nvim_buf_add_highlight(bufnr, namespace, "String", i - 1, 0, -1)
+    end
   end
 end
 
 ---@param item Item
 function M.format(item)
   local icon = M.get(item)
+  if clipboard:find(item.path) ~= nil then
+    icon = { icon = "·", hl = "Keyword" }
+  end
   item.icon = icon
 
   return string.format("%s %s%s", icon.icon, item.name, item.type == "directory" and "/" or "")
