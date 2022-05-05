@@ -15,6 +15,12 @@ function clipboard:set(items, action)
   self.action = action
 end
 
+function clipboard:clear()
+  self.items = {}
+  self.action = function()
+  end
+end
+
 function clipboard:find(path)
   return self.items[path]
 end

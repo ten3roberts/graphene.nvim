@@ -25,7 +25,7 @@ function util.readdir(dir, show_hidden, callback)
 end
 
 function util.path_exists(path)
-  uv.fs_stat(path)
+  return uv.fs_stat(path)
 end
 
 ---@param src string

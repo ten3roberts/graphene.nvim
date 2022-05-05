@@ -30,6 +30,7 @@ local defaults = {
     ["D"] = actions.delete,
     [","] = actions.toggle_selected,
     ["y"] = actions.yank,
+    ["d"] = actions.cut,
     ["p"] = actions.paste,
   }
 }

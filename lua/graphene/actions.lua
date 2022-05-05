@@ -134,21 +134,36 @@ end
 
 ---@param dst string
 ---@param src string
-local function rename(src, dst)
+local function rename(item, dst)
   vim.notify(string.format("%s => %s", src, dst))
-  if not uv.fs_rename(src, dst) then
-    vim.notify("Failed to rename " .. src .. " => " .. dst, vim.log.levels.ERROR)
+  if not uv.fs_rename(item.path, dst) then
+    vim.notify("Failed to rename " .. item.path .. " => " .. dst, vim.log.levels.ERROR)
   end
 end
 
-local function copy(src, dst)
-  util.deep_copy(src, dst)
+local function copy(item, dst)
+  if item.type == "directory" then
+
+    util.deep_copy(item.path, dst)
+  else
+    uv.fs_copyfile(item.path, dst, nil, function(err, ok)
+      assert(ok, err)
+    end)
+  end
 end
 
 local clipboard = require "graphene.clipboard"
 
 ---@param ctx Context
 function M.yank(ctx)
+  local items = ctx:cur_items()
+  clipboard:set(items, copy)
+  ctx:clear_selected()
+  ctx:reload()
+end
+
+---@param ctx Context
+function M.cut(ctx)
   local items = ctx:cur_items()
   clipboard:set(items, rename)
   ctx:clear_selected()
@@ -160,22 +175,25 @@ function M.paste(ctx)
   local action = clipboard.action
   local dir = ctx.dir
   for _, item in pairs(clipboard.items) do
-    local dst = dir .. "/" .. item.name
-    if util.path_exists(path) then
-      local choice = vim.fn.confirm(string.format("Destination %s already exists", dst), "&Skip\n&Rename\n&Force Replace")
+    local dst_path = dir .. "/" .. item.name
+    print(dst_path)
+    if util.path_exists(dst_path) then
+      local choice = vim.fn.confirm(string.format("Destination %s already exists", dst_path), "&Skip\n&Rename\n&Force Replace")
       if choice == 1 then
       elseif choice == 2 then
         local new_name = vim.fn.input("Enter new name: ")
-        dst = dir .. "/" .. new_name
-        action(item.path, dst)
+        dst_path = dir .. "/" .. new_name
+        action(item, dst_path)
       elseif choice == 3 then
-        vim.fn.delete(dst)
-        action(item.path, dst)
+        vim.fn.delete(dst_path)
+        action(item, dst_path)
       end
     else
-      action(item.path, dst)
+      action(item.path, dst_path)
     end
   end
+
+  clipboard:clear()
 
   ctx:reload()
 end
@@ -191,13 +209,17 @@ function M.delete(ctx, force)
 
     local path = item.path;
 
-    local choice = (force and 1) or vim.fn.confirm(string.format("Delete %s %s", item.type, path), "&Yes\n&No\n&All", 1)
+    local all = ""
+    if #items > 1 then all = string.format("\nAll %d", #items) end
+    local choice = (force and 1) or vim.fn.confirm(string.format("Delete %s %s", item.type, path), "&Yes\n&No" .. all, 1)
 
     if choice == 3 then
       force = true
     end
+    if choice == 3 then
 
-    if choice == 1 or choice == 3 then
+
+    elseif choice == 1 or choice == 3 then
       if fn.delete(path, "rf") ~= 0 then
         vim.notify("Failed to delete " .. path, vim.log.levels.ERROR)
       end
@@ -206,7 +228,8 @@ function M.delete(ctx, force)
       if buf ~= -1 then
         a.nvim_buf_delete(buf, {})
       end
-
+    else
+      break
     end
   end
 
