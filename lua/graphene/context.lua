@@ -33,7 +33,7 @@ function M.new(dir, callback)
     local old_win = a.nvim_get_current_win()
     local bufnr = a.nvim_create_buf(false, true)
 
-    a.nvim_buf_set_var("graphene_dir", d)
+    a.nvim_buf_set_var(bufnr, "graphene_dir", d)
     a.nvim_buf_set_option(bufnr, "filetype", "graphene")
 
     local ctx = {
@@ -82,7 +82,7 @@ function M:set_dir(dir, focus, callback)
 
   util.readdir(dir, self.show_hidden, vim.schedule_wrap(function(items, d)
     self.dir = d
-    a.nvim_buf_set_var("graphene_dir", d)
+    a.nvim_buf_set_var(self.bufnr, "graphene_dir", d)
     table.sort(items, config.sort)
     self.items = items
     self:display(focus)

@@ -182,42 +182,35 @@ end
 
 ---@param ctx Context
 function M.delete(ctx, force)
-  local cur = ctx:cur_items()
+  local items = ctx:cur_items()
 
-  if not cur then return end
+  for _, item in ipairs(items) do
 
-  local path = cur.path;
 
-  local function delete()
-    if fn.delete(cur.path, "rf") ~= 0 then
-      vim.notify("Failed to delete " .. path, vim.log.levels.ERROR)
+    if not items then return end
+
+    local path = item.path;
+
+    local choice = (force and 1) or vim.fn.confirm(string.format("Delete %s %s", item.type, path), "&Yes\n&No\n&All", 1)
+
+    if choice == 3 then
+      force = true
     end
-    local buf = fn.bufnr(vim.fn.fnameescape(path))
 
-    if buf ~= -1 then
-      a.nvim_buf_delete(buf, {})
-    end
+    if choice == 1 or choice == 3 then
+      if fn.delete(path, "rf") ~= 0 then
+        vim.notify("Failed to delete " .. path, vim.log.levels.ERROR)
+      end
+      local buf = fn.bufnr(vim.fn.fnameescape(path))
 
-    ctx:reload()
-  end
-
-  local stat = uv.fs_stat(path)
-  if stat and stat.type == "directory" then
-    util.readdir(path, true, vim.schedule_wrap(function(items)
-      local count = #items
-      if not force and vim.fn.confirm(string.format("Delete directory %s containing %d items", path, count), "&Yes\n&No", 1) ~= 1 then
-        return
+      if buf ~= -1 then
+        a.nvim_buf_delete(buf, {})
       end
 
-      delete()
-    end))
-  else
-    if not force and vim.fn.confirm(string.format("Delete file %s", path), "&Yes\n&No", 1) ~= 1 then
-      return
     end
-
-    delete()
   end
+
+  ctx:reload()
 end
 
 return M
