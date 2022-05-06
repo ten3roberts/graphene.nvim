@@ -32,14 +32,17 @@ require "graphene".setup {
     ["<Tab>"] = actions.edit,
     ["q"] = actions.quit,
     ["l"] = actions.edit,
-    ["s"] = actions.split,
-    ["v"] = actions.vsplit,
+    ["<C-s>"] = actions.split,
+    ["<C-v>"] = actions.vsplit,
     ["u"] = actions.up,
     ["h"] = actions.up,
     ["i"] = actions.open,
     ["r"] = actions.rename,
     ["D"] = actions.delete,
-    ["."] = actions.toggle_hidden,
+    [","] = actions.toggle_selected,
+    ["y"] = actions.yank,
+    ["d"] = actions.cut,
+    ["p"] = actions.paste,
   }
 ```
 
@@ -62,3 +65,33 @@ Graphene is also accessible through a lua api, if desired.
 ```lua
 lua require"graphene".init([path])
 ```
+
+## Bulk File Operations
+
+At any point, or or more files can be selected with `,`.
+
+Use `d` to cut the files.
+
+Navigate or create a folder and hit `p` to paste. The files will be moved to the
+new location.
+
+Use `y` to copy the marked files, and paste them with `p`.
+
+If in visual mode, the currently selected lines will be used instead of the
+marked items.
+
+The clipboard is shared between all graphene instances, which means you can
+copy, cut and paste between splits.
+
+Use `d` to cut the files.
+
+Navigate or create a folder and hit `p` to paste. The files will be moved to the
+new location.
+
+Use `y` to copy the marked files, and paste them with `p`.
+
+If in visual mode, the currently selected lines will be used instead of the
+marked items.
+
+The clipboard is shared between all graphene instances, which means you can
+copy, cut and paste between splits.

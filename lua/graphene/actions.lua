@@ -13,7 +13,7 @@ function M.edit(ctx, cmd)
     local item = ctx:cur_item()
     if not item then return end
 
-    if item.type == "directory" and (cmd == "edit") then
+    if item.type == "directory" and cmd == "edit" then
       ctx:set_dir(item.path)
     else
       vim.cmd(cmd .. " " .. fn.fnameescape(item.path))
@@ -171,6 +171,12 @@ function M.cut(ctx)
 end
 
 ---@param ctx Context
+function M.clear_clipboard(ctx)
+  clipboard:clear()
+  ctx:reload()
+end
+
+---@param ctx Context
 function M.paste(ctx)
   local action = clipboard.action
   local dir = ctx.dir
@@ -189,7 +195,7 @@ function M.paste(ctx)
         action(item, dst_path)
       end
     else
-      action(item.path, dst_path)
+      action(item, dst_path)
     end
   end
 
