@@ -6,8 +6,16 @@ local config = require "graphene.config"
 local Context = require "graphene.context"
 
 function M.init(dir)
-  dir = dir or fn.expand("%:p:h")
   local cur_file = fn.expand("%:p:t")
+
+  if not dir then
+    if vim.bo.buftype == "" then
+      dir = fn.expand("%:p:h")
+    else
+      dir = fn.getcwd()
+    end
+  end
+
   Context.new(dir, vim.schedule_wrap(function(ctx)
 
     ctx:display()
