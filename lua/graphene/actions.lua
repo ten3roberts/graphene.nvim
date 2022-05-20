@@ -61,15 +61,16 @@ end
 
 ---@param ctx Context
 function M.rename(ctx)
-  local cur, path = ctx:cur_item()
-  local default = cur
+  local cur = ctx:cur_item()
 
   if not cur then return end
+
+  local path = cur.path
 
   local opts = {
     completion = "dir",
     prompt = "Rename: ",
-    default = default,
+    default = cur.name,
   }
 
   -- cd to the currently focused dir to get completion from the current directory
@@ -77,8 +78,8 @@ function M.rename(ctx)
 
   a.nvim_set_current_dir(ctx.dir)
 
-  vim.ui.input(opts, function(new)
-    if new == nil or new == cur.name then
+  vim.ui.input(opts, function(dst)
+    if dst == nil or dst == cur.name then
       a.nvim_set_current_dir(old_dir)
       return
     end
@@ -88,26 +89,26 @@ function M.rename(ctx)
 
     -- If target is a directory, move the file into the directory.
     -- Makes it work like linux `mv`
-    local stat = uv.fs_stat(ctx.dir .. new)
+    local stat = uv.fs_stat(ctx.dir .. dst)
     if stat and stat.type == "directory" then
-      new = string.format("%s/%s", new, cur.name)
+      dst = string.format("%s/%s", dst, cur.name)
     end
 
 
-    new = ctx.dir .. new
+    dst = ctx.dir .. "/" .. dst
 
     -- Rename buffer
     local buf = fn.bufnr(vim.fn.fnameescape(path))
 
     if buf ~= -1 then
-      a.nvim_buf_set_name(buf, new)
+      a.nvim_buf_set_name(buf, dst)
     end
 
-    if not uv.fs_rename(path, new) then
-      vim.notify("Failed to rename " .. cur.name .. " => " .. new, vim.log.levels.ERROR)
+    if not uv.fs_rename(path, dst) then
+      vim.notify("Failed to rename " .. cur.name .. " => " .. dst, vim.log.levels.ERROR)
     end
 
-    ctx:reload()
+    ctx:reload(nil, dst:match("[^/\\]*"))
   end)
 end
 
