@@ -3,6 +3,10 @@ local a = vim.api
 
 local has_devicons, devicons = pcall(require, "nvim-web-devicons")
 
+---@class Icon
+---@field hl string
+---@field icon string
+
 local folders = {
   default = {
     icon = "",
@@ -15,15 +19,22 @@ local folders = {
   },
 }
 
-function M.get(item)
-  if item.type == "directory" then
-    return folders[item.name] or folders.default
+
+function M.get_inner(name, type)
+  name = string.match(name, "[^/\\]*")
+  if type == "directory" then
+    return folders[name] or folders.default
   elseif has_devicons then
-    local icon, hl = devicons.get_icon(item.name, string.match(item.name, "%a+$"), { default = true })
+    local icon, hl = devicons.get_icon(name, string.match(name, "%a+$"), { default = true })
     return { icon = icon, hl = hl }
   else
     return { icon = "-", hl = "" }
   end
+
+end
+
+function M.get(item)
+  return M.get_inner(item.name, item.type)
 end
 
 local namespace = a.nvim_create_namespace("graphene-icons")
@@ -38,7 +49,6 @@ function M.highlight(ctx)
     local icon = item.icon.icon;
     local len = #icon
     a.nvim_buf_add_highlight(bufnr, namespace, item.icon.hl, i - 1, 0, len)
-    print(item.path)
     if ctx:is_selected(item) then
       a.nvim_buf_add_highlight(bufnr, namespace, "String", i - 1, 0, -1)
     end

@@ -3,6 +3,7 @@ local fn = vim.fn
 local a = vim.api
 
 local config = require "graphene.config"
+local icons = require "graphene.icons"
 local Context = require "graphene.context"
 
 function M.init(dir)
@@ -67,6 +68,22 @@ function M.setup(opts)
     end,
     { nargs = "?", desc = "Open graphene file browser", complete = "file" }
   )
+end
+
+---@class StatuslineOpts
+---@field icon boolean|nil
+---@field hl boolean|nil
+
+---@param opts StatuslineOpts
+---@return function
+function M.make_statusline(opts)
+  opts = opts or {}
+  local icon = opts.icon ~= false
+  local hl = opts.hl ~= false
+  local sl = require "graphene.statusline".statusline
+  return function()
+    return sl(icon, hl)
+  end
 end
 
 return M;

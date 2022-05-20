@@ -133,10 +133,9 @@ function M.toggle_selected(ctx)
   ctx:reload(nil, cur)
 end
 
+---@param item Item
 ---@param dst string
----@param src string
 local function rename(item, dst)
-  vim.notify(string.format("%s => %s", src, dst))
   if not uv.fs_rename(item.path, dst) then
     vim.notify("Failed to rename " .. item.path .. " => " .. dst, vim.log.levels.ERROR)
   end
@@ -183,7 +182,6 @@ function M.paste(ctx)
   local dir = ctx.dir
   for _, item in pairs(clipboard.items) do
     local dst_path = dir .. "/" .. item.name
-    print(dst_path)
     if util.path_exists(dst_path) then
       local choice = vim.fn.confirm(string.format("Destination %s already exists", dst_path), "&Skip\n&Rename\n&Force Replace")
       if choice == 1 then

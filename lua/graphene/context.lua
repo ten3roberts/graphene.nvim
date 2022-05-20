@@ -179,7 +179,6 @@ function M:is_selected(item)
 end
 
 function M:toggle_select(item)
-  print(item.path)
   self.selected[item.path] = not (self.selected[item.path] or false)
 end
 

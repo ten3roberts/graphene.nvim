@@ -21,6 +21,7 @@ local defaults = {
     ["<Tab>"] = actions.edit,
     ["q"] = actions.quit,
     ["l"] = actions.edit,
+    ["."] = actions.toggle_hidden,
     ["<C-s>"] = actions.split,
     ["<C-v>"] = actions.vsplit,
     ["<C-w>v"] = actions.vsplit,
