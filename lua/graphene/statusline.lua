@@ -15,9 +15,9 @@ function M.statusline(icon, hl)
   local dirname = fn.fnamemodify(ctx.dir, ":t");
   if icon then
     icon = icons.get_inner(dirname, "directory")
-    return string.format(" %%#%s#%s%%## %s", hl and icon.hl or "", icon.icon, path)
+    return string.format("%%#Normal# %%#%s#%s%%#Directory# %s", hl and icon.hl or "", icon.icon, path)
   else
-    return dir
+    return path
   end
 end
 
