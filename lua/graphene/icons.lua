@@ -17,13 +17,24 @@ local folders = {
     icon = "",
     hl = "Directory"
   },
+  test = {
+    icon = "",
+    hl = "String"
+  },
+  src = {
+    icon = "",
+    hl = "Directory"
+  }
 }
+
+folders.tests = folders.test
 
 
 function M.get_inner(name, type)
+  local options = require "graphene.config".options
   name = string.match(name, "[^/\\]*")
   if type == "directory" then
-    return folders[name] or folders.default
+    return (options.extended_folder_icons and folders[name]) or folders.default
   elseif has_devicons then
     local icon, hl = devicons.get_icon(name, string.match(name, "%a+$"), { default = true })
     return { icon = icon, hl = hl }

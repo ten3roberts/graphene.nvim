@@ -108,7 +108,7 @@ function M.rename(ctx)
       vim.notify("Failed to rename " .. cur.name .. " => " .. dst, vim.log.levels.ERROR)
     end
 
-    ctx:reload(nil, dst:match("[^/\\]*"))
+    ctx:reload(nil, dst:match(".-/"))
   end)
 end
 

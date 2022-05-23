@@ -16,6 +16,7 @@ local defaults = {
   sort = default_sort,
   override_netrw = true,
   show_hidden = false,
+  extended_folder_icons = true,
   mappings = {
     ["<CR>"] = actions.edit,
     ["<Tab>"] = actions.edit,
