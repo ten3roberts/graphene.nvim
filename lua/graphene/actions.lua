@@ -177,6 +177,11 @@ function M.clear_clipboard(ctx)
 end
 
 ---@param ctx Context
+function M.reload(ctx)
+  ctx:reload()
+end
+
+---@param ctx Context
 function M.paste(ctx)
   local action = clipboard.action
   local dir = ctx.dir

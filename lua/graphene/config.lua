@@ -27,6 +27,7 @@ local defaults = {
     ["<C-v>"] = actions.vsplit,
     ["<C-w>v"] = actions.vsplit,
     ["<C-w>s"] = actions.split,
+    ["<C-r>"] = actions.reload,
     ["u"] = actions.up,
     ["h"] = actions.up,
     ["i"] = actions.open,
