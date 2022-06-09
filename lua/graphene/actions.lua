@@ -1,4 +1,4 @@
-local util = require "graphene.util"
+local util = require("graphene.util")
 local M = {}
 local a = vim.api
 local uv = vim.loop
@@ -11,7 +11,9 @@ function M.edit(ctx, cmd)
 
   if ctx then
     local item = ctx:cur_item()
-    if not item then return end
+    if not item then
+      return
+    end
 
     if item.type == "directory" and cmd == "edit" then
       ctx:set_dir(item.path)
@@ -63,7 +65,9 @@ end
 function M.rename(ctx)
   local cur = ctx:cur_item()
 
-  if not cur then return end
+  if not cur then
+    return
+  end
 
   local path = cur.path
 
@@ -94,7 +98,6 @@ function M.rename(ctx)
       dst = string.format("%s/%s", dst, cur.name)
     end
 
-
     dst = ctx.dir .. "/" .. dst
 
     -- Rename buffer
@@ -123,10 +126,12 @@ function M.toggle_selected(ctx)
   local cur = ctx:cur_item()
   if a.nvim_get_mode().mode:lower() == "v" then
     local left = fn.line(".")
-    local right = fn.line("v");
+    local right = fn.line("v")
     ctx:toggle_range(left, right)
   else
-    if not cur then return end
+    if not cur then
+      return
+    end
     ctx:toggle_select(cur)
   end
 
@@ -143,7 +148,6 @@ end
 
 local function copy(item, dst)
   if item.type == "directory" then
-
     util.deep_copy(item.path, dst)
   else
     uv.fs_copyfile(item.path, dst, nil, function(err, ok)
@@ -152,7 +156,7 @@ local function copy(item, dst)
   end
 end
 
-local clipboard = require "graphene.clipboard"
+local clipboard = require("graphene.clipboard")
 
 ---@param ctx Context
 function M.yank(ctx)
@@ -188,7 +192,10 @@ function M.paste(ctx)
   for _, item in pairs(clipboard.items) do
     local dst_path = dir .. "/" .. item.name
     if util.path_exists(dst_path) then
-      local choice = vim.fn.confirm(string.format("Destination %s already exists", dst_path), "&Skip\n&Rename\n&Force Replace")
+      local choice = vim.fn.confirm(
+        string.format("Destination %s already exists", dst_path),
+        "&Skip\n&Rename\n&Force Replace"
+      )
       if choice == 1 then
       elseif choice == 2 then
         local new_name = vim.fn.input("Enter new name: ")
@@ -213,22 +220,23 @@ function M.delete(ctx, force)
   local items = ctx:cur_items()
 
   for _, item in ipairs(items) do
+    if not items then
+      return
+    end
 
-
-    if not items then return end
-
-    local path = item.path;
+    local path = item.path
 
     local all = ""
-    if #items > 1 then all = string.format("\nAll %d", #items) end
-    local choice = (force and 1) or vim.fn.confirm(string.format("Delete %s %s", item.type, path), "&Yes\n&No" .. all, 1)
+    if #items > 1 then
+      all = string.format("\nAll %d", #items)
+    end
+    local choice = (force and 1)
+      or vim.fn.confirm(string.format("Delete %s %s", item.type, path), "&Yes\n&No" .. all, 1)
 
     if choice == 3 then
       force = true
     end
     if choice == 3 then
-
-
     elseif choice == 1 or choice == 3 then
       if fn.delete(path, "rf") ~= 0 then
         vim.notify("Failed to delete " .. path, vim.log.levels.ERROR)

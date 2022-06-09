@@ -2,9 +2,9 @@ local M = {}
 local fn = vim.fn
 local a = vim.api
 
-local config = require "graphene.config"
-local icons = require "graphene.icons"
-local Context = require "graphene.context"
+local config = require("graphene.config")
+local icons = require("graphene.icons")
+local Context = require("graphene.context")
 
 function M.init(dir)
   local cur_file = fn.expand("%:p:t")
@@ -17,16 +17,18 @@ function M.init(dir)
     end
   end
 
-  Context.new(dir, vim.schedule_wrap(function(ctx)
+  Context.new(
+    dir,
+    vim.schedule_wrap(function(ctx)
+      ctx:display()
 
-    ctx:display()
+      M.setup_mappings(ctx)
 
-    M.setup_mappings(ctx)
+      a.nvim_win_set_buf(0, ctx.bufnr)
 
-    a.nvim_win_set_buf(0, ctx.bufnr)
-
-    ctx:focus(cur_file)
-  end))
+      ctx:focus(cur_file)
+    end)
+  )
 end
 
 function M.setup_mappings(ctx)
@@ -45,29 +47,28 @@ end
 function M.setup(opts)
   config.setup(opts)
 
-  local group = a.nvim_create_augroup("FileExplorer", { clear = true });
+  local group = a.nvim_create_augroup("FileExplorer", { clear = true })
   local function au(event, o)
     opts.group = group
     a.nvim_create_autocmd(event, o)
   end
 
   if config.override_netrw then
-    vim.g.loaded_netrw = 1
-    vim.g.loaded_netrwPlugin = 1
-    au({ "BufEnter" }, { callback = function(o)
-      if vim.fn.isdirectory(o.file) == 1 then
-        M.init(o.file)
-      end
-    end })
+    -- vim.g.loaded_netrw = 1
+    -- vim.g.loaded_netrwPlugin = 1
+    au({ "BufEnter" }, {
+      callback = function(o)
+        if vim.fn.isdirectory(o.file) == 1 then
+          M.init(o.file)
+        end
+      end,
+    })
   end
 
-  a.nvim_create_user_command("Graphene",
-    function(o)
-      local args = o.args ~= "" and o.args
-      require "graphene".init(args)
-    end,
-    { nargs = "?", desc = "Open graphene file browser", complete = "file" }
-  )
+  a.nvim_create_user_command("Graphene", function(o)
+    local args = o.args ~= "" and o.args
+    require("graphene").init(args)
+  end, { nargs = "?", desc = "Open graphene file browser", complete = "file" })
 end
 
 ---@class StatuslineOpts
@@ -80,10 +81,10 @@ function M.make_statusline(opts)
   opts = opts or {}
   local icon = opts.icon ~= false
   local hl = opts.hl ~= false
-  local sl = require "graphene.statusline".statusline
+  local sl = require("graphene.statusline").statusline
   return function()
     return sl(icon, hl)
   end
 end
 
-return M;
+return M

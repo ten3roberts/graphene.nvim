@@ -10,28 +10,27 @@ local has_devicons, devicons = pcall(require, "nvim-web-devicons")
 local folders = {
   default = {
     icon = "",
-    hl = "Directory"
+    hl = "Directory",
   },
   [".git"] = {
 
     icon = "",
-    hl = "Directory"
+    hl = "Directory",
   },
   test = {
     icon = "",
-    hl = "String"
+    hl = "String",
   },
   src = {
     icon = "",
-    hl = "Directory"
-  }
+    hl = "Directory",
+  },
 }
 
 folders.tests = folders.test
 
-
 function M.get_inner(name, type)
-  local options = require "graphene.config".options
+  local options = require("graphene.config").options
   name = string.match(name, "[^/\\]*")
   if type == "directory" then
     return (options.extended_folder_icons and folders[name]) or folders.default
@@ -41,7 +40,6 @@ function M.get_inner(name, type)
   else
     return { icon = "-", hl = "" }
   end
-
 end
 
 function M.get(item)
@@ -57,7 +55,7 @@ function M.highlight(ctx)
   a.nvim_buf_clear_namespace(bufnr, namespace, 0, -1)
 
   for i, item in ipairs(ctx.items) do
-    local icon = item.icon.icon;
+    local icon = item.icon.icon
     local len = #icon
     a.nvim_buf_add_highlight(bufnr, namespace, item.icon.hl, i - 1, 0, len)
     if ctx:is_selected(item) then

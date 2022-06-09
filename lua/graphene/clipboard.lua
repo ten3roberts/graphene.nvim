@@ -3,7 +3,7 @@
 ---@field action function
 local clipboard = {
   items = {},
-  action = function(_, _) end
+  action = function(_, _) end,
 }
 
 ---@param items Item[]
@@ -17,8 +17,7 @@ end
 
 function clipboard:clear()
   self.items = {}
-  self.action = function()
-  end
+  self.action = function() end
 end
 
 function clipboard:find(path)

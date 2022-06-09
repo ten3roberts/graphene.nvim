@@ -1,4 +1,4 @@
-local actions = require "graphene.actions"
+local actions = require("graphene.actions")
 
 local default_sort = function(a, b)
   if a.type == b.type then
@@ -11,8 +11,8 @@ end
 ---@class graphene.config
 ---@field format_item function
 local defaults = {
-  format_item = require "graphene.icons".format,
-  highlight_items = require "graphene.icons".highlight,
+  format_item = require("graphene.icons").format,
+  highlight_items = require("graphene.icons").highlight,
   sort = default_sort,
   override_netrw = true,
   show_hidden = false,
@@ -37,11 +37,11 @@ local defaults = {
     ["y"] = actions.yank,
     ["d"] = actions.cut,
     ["p"] = actions.paste,
-  }
+  },
 }
 
 local M = {
-  options = defaults
+  options = defaults,
 }
 
 M.__index = M.options

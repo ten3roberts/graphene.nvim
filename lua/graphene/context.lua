@@ -1,5 +1,5 @@
-local util = require "graphene.util"
-local config = require "graphene.config"
+local util = require("graphene.util")
+local config = require("graphene.config")
 
 ---@class Context
 ---@field items table
@@ -26,32 +26,36 @@ local history = {}
 --- Create a new context (async)
 --- Reads files from the provided directory
 function M.new(dir, callback)
-  util.readdir(dir, config.show_hidden, vim.schedule_wrap(function(items, d)
-    table.sort(items, config.sort)
+  util.readdir(
+    dir,
+    config.show_hidden,
+    vim.schedule_wrap(function(items, d)
+      table.sort(items, config.sort)
 
-    local old_buf = a.nvim_get_current_buf()
-    local old_win = a.nvim_get_current_win()
-    local bufnr = a.nvim_create_buf(false, true)
+      local old_buf = a.nvim_get_current_buf()
+      local old_win = a.nvim_get_current_win()
+      local bufnr = a.nvim_create_buf(false, true)
 
-    a.nvim_buf_set_var(bufnr, "graphene_dir", d)
-    a.nvim_buf_set_option(bufnr, "filetype", "graphene")
+      a.nvim_buf_set_var(bufnr, "graphene_dir", d)
+      a.nvim_buf_set_option(bufnr, "filetype", "graphene")
 
-    local ctx = {
-      items = items,
-      dir = d,
-      bufnr = bufnr,
-      old_buf = old_buf,
-      old_win = old_win,
-      show_hidden = config.show_hidden,
-      selected = {}
-    }
+      local ctx = {
+        items = items,
+        dir = d,
+        bufnr = bufnr,
+        old_buf = old_buf,
+        old_win = old_win,
+        show_hidden = config.show_hidden,
+        selected = {},
+      }
 
-    contexts[bufnr] = ctx
+      contexts[bufnr] = ctx
 
-    setmetatable(ctx, M)
+      setmetatable(ctx, M)
 
-    callback(ctx)
-  end))
+      callback(ctx)
+    end)
+  )
 end
 
 function M:quit()
@@ -80,24 +84,36 @@ end
 function M:set_dir(dir, focus, callback)
   self:add_history()
 
-  util.readdir(dir, self.show_hidden, vim.schedule_wrap(function(items, d)
-    self.dir = d
-    a.nvim_buf_set_var(self.bufnr, "graphene_dir", d)
-    table.sort(items, config.sort)
-    self.items = items
-    self:display(focus)
-    if callback then callback(self) end
-  end))
+  util.readdir(
+    dir,
+    self.show_hidden,
+    vim.schedule_wrap(function(items, d)
+      self.dir = d
+      a.nvim_buf_set_var(self.bufnr, "graphene_dir", d)
+      table.sort(items, config.sort)
+      self.items = items
+      self:display(focus)
+      if callback then
+        callback(self)
+      end
+    end)
+  )
 end
 
 function M:reload(callback, focus)
   focus = focus or self:cur_item()
-  util.readdir(self.dir, self.show_hidden, vim.schedule_wrap(function(items)
-    table.sort(items, config.sort)
-    self.items = items
-    self:display(focus)
-    if callback then callback(self) end
-  end))
+  util.readdir(
+    self.dir,
+    self.show_hidden,
+    vim.schedule_wrap(function(items)
+      table.sort(items, config.sort)
+      self.items = items
+      self:display(focus)
+      if callback then
+        callback(self)
+      end
+    end)
+  )
 end
 
 function M:display(focus)
@@ -105,7 +121,7 @@ function M:display(focus)
 
   a.nvim_buf_set_option(bufnr, "modifiable", true)
   -- Fill
-  local fmt = config.format_item;
+  local fmt = config.format_item
   local lines = vim.tbl_map(function(item)
     return fmt(item)
   end, self.items)
@@ -116,7 +132,7 @@ function M:display(focus)
 
   a.nvim_buf_set_lines(bufnr, 0, -1, true, lines)
 
-  local hi = config.options.highlight_items;
+  local hi = config.options.highlight_items
   hi(self)
 
   a.nvim_buf_set_option(bufnr, "modifiable", false)
@@ -147,7 +163,7 @@ function M:cur_items()
   local t = {}
   if a.nvim_get_mode().mode:lower() == "v" then
     local left = fn.line(".")
-    local right = fn.line("v");
+    local right = fn.line("v")
     local l = math.min(left, right)
     local r = math.max(left, right)
     for i = l, r do
