@@ -44,20 +44,24 @@ function M.quit(ctx)
 end
 
 ---@param ctx Context
-function M.open(ctx)
+function M.create(ctx)
   vim.ui.input({ prompt = "Name: " }, function(name)
     if not name then
       return
     end
 
     local path = ctx:path(name)
-    if string.find(name, "/$") then
-      fn.mkdir(path, "p")
-      ctx:reload(nil, name)
-    else
-      fn.mkdir(fn.fnamemodify(path, ":p:h"), "p")
-      vim.cmd("edit " .. fn.fnameescape(path))
-    end
+    local is_dir = string.find(name, "/$")
+    util.create_path(
+      path,
+      is_dir,
+      vim.schedule_wrap(function()
+        if not is_dir then
+          vim.cmd("edit " .. fn.fnameescape(path))
+        end
+        ctx:reload(nil, name)
+      end)
+    )
   end)
 end
 

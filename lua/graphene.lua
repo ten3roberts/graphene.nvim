@@ -3,7 +3,6 @@ local fn = vim.fn
 local a = vim.api
 
 local config = require("graphene.config")
-local icons = require("graphene.icons")
 local Context = require("graphene.context")
 
 function M.init(dir)
@@ -16,6 +15,8 @@ function M.init(dir)
       dir = fn.getcwd()
     end
   end
+
+  print("Opening graphene: ", dir, cur_file)
 
   Context.new(
     dir,
