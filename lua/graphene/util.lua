@@ -51,29 +51,45 @@ end
 
 ---@param src string
 ---@param dst string
-function M.deep_copy(src, dst)
-  vim.fn.mkdir(dst, "p")
+function M.deep_copy(src, dst, callback)
+  -- vim.fn.mkdir(dst, "p")
 
-  uv.fs_opendir(src, function(err, dirent)
-    assert(dirent, err)
+  local function copy()
+    uv.fs_opendir(src, function(err, dirent)
+      assert(dirent, err)
 
-    repeat
-      local entries = uv.fs_readdir(dirent)
-      if entries then
-        for _, v in ipairs(entries) do
-          local dst_file = dst .. "/" .. v.name
-          local src_file = src .. "/" .. v.name
-
-          if v.type == "directory" then
-            M.deep_copy(src_file, dst_file)
-          else
-            uv.fs_copyfile(src_file, dst_file)
+      local function f()
+        uv.fs_readdir(dirent, function(e, entries)
+          if e then
+            vim.notify(string.format("Failed to read %q. %s", dirent, err), vim.log.levels.ERROR)
           end
-        end
+          if entries then
+            for _, v in ipairs(entries) do
+              local dst_file = dst .. "/" .. v.name
+              local src_file = src .. "/" .. v.name
+
+              if v.type == "directory" then
+                M.deep_copy(src_file, dst_file, callback)
+              else
+                uv.fs_copyfile(src_file, dst_file, callback)
+              end
+            end
+
+            f()
+          else
+            -- Done
+            if callback then
+              callback()
+            end
+          end
+        end)
       end
-    until not entries
-    assert(uv.fs_closedir(dirent) == true)
-  end, 64)
+
+      f()
+    end, 64)
+  end
+
+  M.create_path(dst, true, copy)
 end
 
 --- Creates a path

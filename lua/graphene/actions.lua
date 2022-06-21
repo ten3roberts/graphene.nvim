@@ -150,12 +150,15 @@ local function rename(item, dst)
   end
 end
 
-local function copy(item, dst)
+local function copy(item, dst, callback)
   if item.type == "directory" then
-    util.deep_copy(item.path, dst)
+    util.deep_copy(item.path, dst, callback)
   else
     uv.fs_copyfile(item.path, dst, nil, function(err, ok)
       assert(ok, err)
+      if callback then
+        callback()
+      end
     end)
   end
 end
@@ -207,10 +210,22 @@ function M.paste(ctx)
         action(item, dst_path)
       elseif choice == 3 then
         vim.fn.delete(dst_path)
-        action(item, dst_path)
+        action(
+          item,
+          dst_path,
+          vim.schedule_wrap(function()
+            ctx:reload_all()
+          end)
+        )
       end
     else
-      action(item, dst_path)
+      action(
+        item,
+        dst_path,
+        vim.schedule_wrap(function()
+          ctx:reload_all()
+        end)
+      )
     end
   end
 

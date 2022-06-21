@@ -3,7 +3,7 @@
 ---@field action function
 local clipboard = {
   items = {},
-  action = function(_, _) end,
+  action = function(_, _, _) end,
 }
 
 ---@param items Item[]

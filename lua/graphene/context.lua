@@ -100,6 +100,12 @@ function M:set_dir(dir, focus, callback)
   )
 end
 
+function M:reload_all(callback, focus)
+  for _, ctx in pairs(contexts) do
+    ctx:reload(callback, focus)
+  end
+end
+
 function M:reload(callback, focus)
   focus = focus or self:cur_item()
   util.readdir(
