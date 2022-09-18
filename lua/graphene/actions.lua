@@ -64,6 +64,37 @@ function M.create(ctx)
     )
   end)
 end
+local function open_external(path)
+  local job = vim.fn.jobstart({ "xdg-open", path }, {
+    detached = true,
+    on_exit = function(_, code)
+      if code ~= 0 then
+        vim.notify("Failed to execute xdg-open for " .. path, vim.log.levels.ERROR)
+      end
+    end,
+  })
+
+  if job < 0 then
+    vim.notify("Failed to start xdg-open ", vim.log.levels.ERROR)
+  end
+end
+
+---@param ctx Context
+function M.open_external(ctx)
+  local cur = ctx:cur_item()
+
+  if not cur then
+    return
+  end
+
+  local path = cur.path
+  open_external(path)
+end
+
+---@param ctx Context
+function M.open_dir_external(ctx)
+  open_external(ctx.dir)
+end
 
 ---@param ctx Context
 function M.rename(ctx)
@@ -84,16 +115,10 @@ function M.rename(ctx)
   -- cd to the currently focused dir to get completion from the current directory
   local old_dir = fn.getcwd()
 
-  a.nvim_set_current_dir(ctx.dir)
-
   vim.ui.input(opts, function(dst)
     if dst == nil or dst == cur.name then
-      a.nvim_set_current_dir(old_dir)
       return
     end
-
-    -- Restore working directory
-    a.nvim_set_current_dir(old_dir)
 
     -- If target is a directory, move the file into the directory.
     -- Makes it work like linux `mv`
@@ -199,10 +224,8 @@ function M.paste(ctx)
   for _, item in pairs(clipboard.items) do
     local dst_path = dir .. "/" .. item.name
     if util.path_exists(dst_path) then
-      local choice = vim.fn.confirm(
-        string.format("Destination %s already exists", dst_path),
-        "&Skip\n&Rename\n&Force Replace"
-      )
+      local choice =
+        vim.fn.confirm(string.format("Destination %s already exists", dst_path), "&Skip\n&Rename\n&Force Replace")
       if choice == 1 then
       elseif choice == 2 then
         local new_name = vim.fn.input("Enter new name: ")

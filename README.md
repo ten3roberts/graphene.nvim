@@ -12,6 +12,7 @@ such, Graphene focuses on your immediate surroundings letting you be focused on
 the files at hand.
 
 ## Setup
+
 Simply call:
 
 ```lua
@@ -19,6 +20,7 @@ require "graphene".setup {}
 ```
 
 ## Configuration
+
 ```lua
 local actions = require "graphene.actions"
 
@@ -43,6 +45,8 @@ require "graphene".setup {
     ["y"] = actions.yank,
     ["d"] = actions.cut,
     ["p"] = actions.paste,
+    ["<C-o>"] = actions.open_dir_external,
+    ["o"] = actions.open_external,
   }
 ```
 
