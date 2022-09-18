@@ -60,8 +60,12 @@ end
 
 function M:quit()
   self:add_history()
-  a.nvim_set_current_win(self.old_win)
-  a.nvim_set_current_buf(self.old_buf)
+
+  if a.nvim_buf_is_loaded(self.old_buf) and a.nvim_win_is_valid(self.old_win) then
+    a.nvim_set_current_win(self.old_win)
+    a.nvim_set_current_buf(self.old_buf)
+  end
+
   a.nvim_buf_delete(self.bufnr, {})
   contexts[self.bufnr] = nil
 end
