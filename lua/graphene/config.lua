@@ -37,7 +37,7 @@ local defaults = {
     ["y"] = actions.yank,
     ["d"] = actions.cut,
     ["p"] = actions.paste,
-    ["<C-o>"] = actions.open_dir_external,
+    ["O"] = actions.open_dir_external,
     ["o"] = actions.open_external,
   },
 }
