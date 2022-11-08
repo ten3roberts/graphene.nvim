@@ -64,15 +64,50 @@ function M.highlight(ctx)
   end
 end
 
+local function prefixed(val)
+  if val > 1e9 then
+    return string.format("%.1f", val / 1e9) .. "G"
+  elseif val > 1e6 then
+    return string.format("%.1f", val / 1e6) .. "M"
+  elseif val > 1e3 then
+    return string.format("%.1f", val / 1e3) .. "k"
+  else
+    return string.format("%.1f", val)
+  end
+end
+
+local function modmask(bits)
+  local t = {}
+  for _ = 1, 3 do
+    local s = (bit.band(bits, 4) == 4 and "r" or "-")
+      .. (bit.band(bits, 2) == 2 and "w" or "-")
+      .. (bit.band(bits, 1) == 1 and "x" or "-")
+    table.insert(t, 1, s)
+    bits = bit.rshift(bits, 3)
+  end
+
+  return table.concat(t)
+end
+
 ---@param item Item
-function M.format(item)
+function M.format(item, width)
   local icon = M.get(item)
   if clipboard:find(item.path) ~= nil then
     icon = { icon = "·", hl = "Keyword" }
   end
   item.icon = icon
 
-  return string.format("%s %s%s", icon.icon, item.name, item.type == "directory" and "/" or "")
+  local left = string.format("%s %s%s", icon.icon, item.name, item.type == "directory" and "/" or "")
+  local right
+  if item.size > 0.0 and item.type == "file" then
+    right = string.format("%6sB %s", prefixed(item.size), modmask(item.mode))
+  else
+    right = string.format("%s", modmask(item.mode))
+  end
+  local padding = string.rep(" ", math.max(width - #left - #right, 0))
+
+  return left .. padding .. right
+  -- vim.fn.strftime("%c", item.modified)
 end
 
 return M

@@ -1,6 +1,7 @@
 local util = require("graphene.util")
+local async = require("plenary.async")
 local M = {}
-local a = vim.api
+local api = vim.api
 local uv = vim.loop
 local fn = vim.fn
 
@@ -45,24 +46,24 @@ end
 
 ---@param ctx Context
 function M.create(ctx)
-  vim.ui.input({ prompt = "Name: " }, function(name)
-    if not name then
-      return
-    end
+  vim.ui.input(
+    { prompt = "Name: " },
+    async.void(function(name)
+      if not name then
+        return
+      end
 
-    local path = ctx:path(name)
-    local is_dir = string.find(name, "/$")
-    util.create_path(
-      path,
-      is_dir,
-      vim.schedule_wrap(function()
-        if not is_dir then
-          vim.cmd("edit " .. fn.fnameescape(path))
-        end
-        ctx:reload(nil, name)
-      end)
-    )
-  end)
+      local path = ctx:path(name)
+      local is_dir = string.find(name, "/$")
+      util.create_path(path, is_dir ~= nil)
+
+      async.util.scheduler()
+      if not is_dir then
+        vim.cmd("edit " .. fn.fnameescape(path))
+      end
+      ctx:reload(name)
+    end)
+  )
 end
 local function open_external(path)
   local job = vim.fn.jobstart({ "xdg-open", path }, {
@@ -115,33 +116,38 @@ function M.rename(ctx)
   -- cd to the currently focused dir to get completion from the current directory
   local old_dir = fn.getcwd()
 
-  vim.ui.input(opts, function(dst)
-    if dst == nil or dst == cur.name then
-      return
-    end
+  vim.ui.input(
+    opts,
+    async.void(function(dst)
+      if dst == nil or dst == cur.name then
+        return
+      end
 
-    -- If target is a directory, move the file into the directory.
-    -- Makes it work like linux `mv`
-    local stat = uv.fs_stat(ctx.dir .. dst)
-    if stat and stat.type == "directory" then
-      dst = string.format("%s/%s", dst, cur.name)
-    end
+      -- If target is a directory, move the file into the directory.
+      -- Makes it work like linux `mv`
+      local stat = async.uv.fs_stat(ctx.dir .. dst)
+      if stat and stat.type == "directory" then
+        dst = string.format("%s/%s", dst, cur.name)
+      end
 
-    dst = ctx.dir .. "/" .. dst
+      async.util.scheduler()
+      dst = ctx.dir .. "/" .. dst
 
-    -- Rename buffer
-    local buf = fn.bufnr(vim.fn.fnameescape(path))
+      -- Rename buffer
+      local buf = fn.bufnr(vim.fn.fnameescape(path))
 
-    if buf ~= -1 then
-      a.nvim_buf_set_name(buf, dst)
-    end
+      if buf ~= -1 then
+        api.nvim_buf_set_name(buf, dst)
+      end
 
-    if not uv.fs_rename(path, dst) then
-      vim.notify("Failed to rename " .. cur.name .. " => " .. dst, vim.log.levels.ERROR)
-    end
+      if not async.uv.fs_rename(path, dst) then
+        vim.notify("Failed to rename " .. cur.name .. " => " .. dst, vim.log.levels.ERROR)
+      end
 
-    ctx:reload(nil, dst:match(".-/"))
-  end)
+      async.util.scheduler()
+      ctx:reload(dst:match(".-/"))
+    end)
+  )
 end
 
 ---@param ctx Context
@@ -153,7 +159,7 @@ end
 ---@param ctx Context
 function M.toggle_selected(ctx)
   local cur = ctx:cur_item()
-  if a.nvim_get_mode().mode:lower() == "v" then
+  if api.nvim_get_mode().mode:lower() == "v" then
     local left = fn.line(".")
     local right = fn.line("v")
     ctx:toggle_range(left, right)
@@ -164,7 +170,7 @@ function M.toggle_selected(ctx)
     ctx:toggle_select(cur)
   end
 
-  ctx:reload(nil, cur)
+  ctx:reload(cur)
 end
 
 ---@param item Item
@@ -286,7 +292,7 @@ function M.delete(ctx, force)
       local buf = fn.bufnr(vim.fn.fnameescape(path))
 
       if buf ~= -1 then
-        a.nvim_buf_delete(buf, {})
+        api.nvim_buf_delete(buf, {})
       end
     else
       break

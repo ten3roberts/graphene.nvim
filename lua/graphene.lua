@@ -1,10 +1,11 @@
 local M = {}
 local fn = vim.fn
-local a = vim.api
+local api = vim.api
 
 local config = require("graphene.config")
 local Context = require("graphene.context")
 
+local a = require("plenary.async")
 function M.init(dir)
   local cur_file = fn.expand("%:p:t")
 
@@ -16,20 +17,16 @@ function M.init(dir)
     end
   end
 
-  print("Opening graphene: ", dir, cur_file)
+  a.run(function()
+    local ctx = Context.new(dir)
+    a.util.scheduler()
+    api.nvim_win_set_buf(0, ctx.bufnr)
+    ctx:display()
 
-  Context.new(
-    dir,
-    vim.schedule_wrap(function(ctx)
-      ctx:display()
+    M.setup_mappings(ctx)
 
-      M.setup_mappings(ctx)
-
-      a.nvim_win_set_buf(0, ctx.bufnr)
-
-      ctx:focus(cur_file)
-    end)
-  )
+    ctx:focus(cur_file)
+  end)
 end
 
 function M.setup_mappings(ctx)
@@ -38,9 +35,12 @@ function M.setup_mappings(ctx)
   end
 
   for k, v in pairs(config.mappings) do
-    map(k, function()
-      v(ctx)
-    end)
+    map(
+      k,
+      a.void(function()
+        v(ctx)
+      end)
+    )
   end
 end
 
@@ -48,10 +48,10 @@ end
 function M.setup(opts)
   config.setup(opts)
 
-  local group = a.nvim_create_augroup("FileExplorer", { clear = true })
+  local group = api.nvim_create_augroup("FileExplorer", { clear = true })
   local function au(event, o)
     opts.group = group
-    a.nvim_create_autocmd(event, o)
+    api.nvim_create_autocmd(event, o)
   end
 
   if config.override_netrw then
@@ -66,7 +66,7 @@ function M.setup(opts)
     })
   end
 
-  a.nvim_create_user_command("Graphene", function(o)
+  api.nvim_create_user_command("Graphene", function(o)
     local args = o.args ~= "" and o.args
     require("graphene").init(args)
   end, { nargs = "?", desc = "Open graphene file browser", complete = "file" })
