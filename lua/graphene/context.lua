@@ -60,7 +60,7 @@ function M.new(dir)
 
   setmetatable(ctx, M)
 
-  api.nvim_create_autocmd({ "VimResized", "WinEnter" }, {
+  api.nvim_create_autocmd({ "VimResized", "WinEnter", "BufEnter", "BufWinEnter" }, {
     callback = a.void(function()
       ctx:display()
     end),
@@ -135,6 +135,7 @@ function M:reload_all(callback, focus)
 end
 
 function M:reload(focus)
+  a.util.scheduler()
   focus = focus or self:cur_item()
   self:read_files()
   self:display(focus)
