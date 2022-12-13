@@ -280,14 +280,15 @@ function M.delete(ctx, force)
 		if #items > 1 then
 			all = string.format("\nAll %d", #items)
 		end
+
 		local choice = (force and 1)
 			or vim.fn.confirm(string.format("Delete %s %s", item.type, path), "&Yes\n&No" .. all, 1)
 
 		if choice == 3 then
 			force = true
 		end
-		if choice == 3 then
-		elseif choice == 1 or choice == 3 then
+
+		if choice == 1 or choice == 3 then
 			if fn.delete(path, "rf") ~= 0 then
 				vim.notify("Failed to delete " .. path, vim.log.levels.ERROR)
 			end
