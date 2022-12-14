@@ -114,7 +114,7 @@ function M.rename(ctx)
 	}
 
 	-- cd to the currently focused dir to get completion from the current directory
-	local old_dir = fn.getcwd()
+	-- local old_dir = fn.getcwd()
 
 	vim.ui.input(
 		opts,
@@ -125,12 +125,17 @@ function M.rename(ctx)
 
 			-- If target is a directory, move the file into the directory.
 			-- Makes it work like linux `mv`
-			local stat = async.uv.fs_stat(ctx.dir .. dst)
-			if stat and stat.type == "directory" then
-				dst = string.format("%s/%s", dst, cur.name)
-			end
+			local stat = uv.fs_stat(ctx.dir .. "/" .. dst)
 
 			async.util.scheduler()
+			if type(stat) == "table" then
+				if stat.type == "directory" then
+					dst = string.format("%s/%s", dst, cur.name)
+				elseif vim.fn.confirm(string.format("%q already exists. Replace?", dst), "&Yes\n&No") ~= 1 then
+					return
+				end
+			end
+
 			dst = ctx.dir .. "/" .. dst
 
 			-- Rename buffer
