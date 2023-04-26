@@ -71,7 +71,7 @@ function M:quit()
 end
 
 ---@return Context|nil
-function M:get(bufnr)
+function M.get(bufnr)
   bufnr = (bufnr ~= nil and bufnr ~= 0) or a.nvim_get_current_buf()
   return contexts[bufnr]
 end

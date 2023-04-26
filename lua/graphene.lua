@@ -88,4 +88,22 @@ function M.make_statusline(opts)
   end
 end
 
+function M.status()
+  local icons = require("graphene.icons")
+  local ctx = Context.get()
+
+  if not ctx then
+    return {}
+  end
+
+  local path = fn.fnamemodify(ctx.dir, ":~:.")
+  local dirname = fn.fnamemodify(ctx.dir, ":t")
+  local icon = icons.get_inner(dirname, "directory")
+  return {
+    path = path,
+    dirname = dirname,
+    icon = icon,
+  }
+end
+
 return M
