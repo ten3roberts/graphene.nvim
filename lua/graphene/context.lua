@@ -40,6 +40,9 @@ function M.new(dir)
   local old_win = api.nvim_get_current_win()
   local bufnr = api.nvim_create_buf(false, true)
   local _, d = a.uv.fs_realpath(dir)
+  if not d then
+    d = dir
+  end
 
   a.util.scheduler()
 
