@@ -101,6 +101,7 @@ function M:quit()
   contexts[self.bufnr] = nil
 end
 
+---@bufnr number|nil
 ---@return Context|nil
 function M:get(bufnr)
   bufnr = (bufnr ~= nil and bufnr ~= 0) or api.nvim_get_current_buf()
