@@ -55,8 +55,9 @@ function M.setup(opts)
 	end
 
 	if config.override_netrw then
-		-- vim.g.loaded_netrw = 1
-		-- vim.g.loaded_netrwPlugin = 1
+		vim.g.loaded_netrw = 1
+		vim.g.loaded_netrwPlugin = 1
+
 		au({ "BufEnter" }, {
 			callback = function(o)
 				if vim.fn.isdirectory(o.file) == 1 and api.nvim_buf_get_option(o.buf, "buftype") == "" then
