@@ -72,7 +72,7 @@ function M.new(dir)
 
   api.nvim_create_autocmd({ "ShellCmdPost", "BufNewFile" }, {
     callback = a.void(function()
-      ctx:reload()
+      -- ctx:reload()
     end),
     buffer = bufnr,
   })
