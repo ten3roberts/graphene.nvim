@@ -20,7 +20,7 @@ local function find_git_root(dir)
   return nil
 end
 
---- Get list of git-ignored files in a directory
+--- Get list of git-ignored files in a directory (async)
 ---@param dir string
 ---@return table<string, boolean> ignored_files map of filename -> true
 local function get_gitignored_files(dir)
@@ -33,11 +33,50 @@ local function get_gitignored_files(dir)
   local git_root = find_git_root(dir)
 
   if git_root then
-    -- Use git check-ignore to get ignored files
-    -- Run synchronously since we're in async context anyway
-    local result = vim.fn.systemlist({ "git", "-C", dir, "ls-files", "--others", "--ignored", "--exclude-standard", "--directory" })
-    if vim.v.shell_error == 0 then
-      for _, file in ipairs(result) do
+    -- Use plenary async to run git command without blocking
+    local stdout_data = {}
+    local stderr_data = {}
+
+    local job_complete = a.wrap(function(callback)
+      local stdout = uv.new_pipe(false)
+      local stderr = uv.new_pipe(false)
+
+      local handle
+      handle = uv.spawn("git", {
+        args = { "-C", dir, "ls-files", "--others", "--ignored", "--exclude-standard", "--directory" },
+        stdio = { nil, stdout, stderr },
+      }, function(code)
+        stdout:read_stop()
+        stderr:read_stop()
+        stdout:close()
+        stderr:close()
+        handle:close()
+        callback(code)
+      end)
+
+      if not handle then
+        callback(-1)
+        return
+      end
+
+      stdout:read_start(function(err, data)
+        if data then
+          table.insert(stdout_data, data)
+        end
+      end)
+
+      stderr:read_start(function(err, data)
+        if data then
+          table.insert(stderr_data, data)
+        end
+      end)
+    end, 1)
+
+    local exit_code = job_complete()
+
+    if exit_code == 0 then
+      local output = table.concat(stdout_data, "")
+      for file in output:gmatch("[^\r\n]+") do
         -- Remove trailing slash from directories
         file = file:gsub("/$", "")
         ignored[file] = true
@@ -71,11 +110,10 @@ function M.readdir(dir, show_hidden)
 
 	real = real:gsub("/$", "")
 
-	-- Get gitignored files for this directory (only if not showing hidden)
-	local ignored_files = {}
-	if not show_hidden then
-		ignored_files = get_gitignored_files(real)
-	end
+	-- Get gitignored files for this directory
+	-- When show_hidden is false: filter them out
+	-- When show_hidden is true: mark them as gitignored for muted display
+	local ignored_files = get_gitignored_files(real)
 
 	local err, dirent = a.wrap(function(cb)
 		uv.fs_opendir(real, cb, 4)
@@ -91,24 +129,27 @@ function M.readdir(dir, show_hidden)
 		end
 
 		for _, v in ipairs(entries) do
-			-- Hide files that are git-ignored (when not showing hidden)
 			local is_ignored = ignored_files[v.name]
-			if show_hidden or not is_ignored then
+			local is_hidden = v.name:sub(1, 1) == "."
+			-- Hide files that are git-ignored or hidden (when not showing hidden)
+			if show_hidden or (not is_ignored and not is_hidden) then
 				local path = real .. "/" .. v.name
 				local err, stat = a.uv.fs_stat(path)
 				if not stat then
-					vim.notify("Failed to stat: " .. path .. ". " .. err, vim.log.levels.ERROR)
+					vim.notify("Failed to stat: " .. path .. ". " .. (err or "unknown error"), vim.log.levels.WARN)
+				else
+					local item = {
+						name = v.name,
+						type = v.type,
+						path = path,
+						modified = stat.mtime.sec,
+						mode = stat.mode,
+						size = stat.size,
+						is_gitignored = is_ignored or false,
+						is_hidden = is_hidden,
+					}
+					table.insert(t, item)
 				end
-
-				local item = {
-					name = v.name,
-					type = v.type,
-					path = path,
-					modified = stat.mtime.sec,
-					mode = stat.mode,
-					size = stat.size,
-				}
-				table.insert(t, item)
 			end
 		end
 	end

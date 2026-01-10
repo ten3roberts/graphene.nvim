@@ -1,5 +1,6 @@
 local util = require("graphene.util")
 local config = require("graphene.config")
+local icons = require("graphene.icons")
 local a = require("plenary.async")
 
 ---@class Context
@@ -19,6 +20,8 @@ local M = {}
 ---@field modified number
 ---@field mode number
 ---@field size number
+---@field is_gitignored boolean
+---@field is_hidden boolean
 
 M.__index = M
 
@@ -50,7 +53,7 @@ function M.new(dir)
   a.util.scheduler()
 
   api.nvim_buf_set_var(bufnr, "graphene_dir", d)
-  api.nvim_buf_set_option(bufnr, "filetype", "graphene")
+  vim.bo[bufnr].filetype = "graphene"
 
   -- Use global state if set, otherwise use config default
   local show_hidden = global_show_hidden
@@ -86,6 +89,21 @@ function M.new(dir)
     buffer = bufnr,
   })
 
+  -- Prevent cursor from navigating to header line (line 1)
+  api.nvim_create_autocmd({ "CursorMoved", "CursorMovedI" }, {
+    callback = function()
+      local line = fn.line(".")
+      if line == 1 then
+        -- Move cursor to line 2 (first item) if there are items, otherwise stay
+        local line_count = api.nvim_buf_line_count(bufnr)
+        if line_count > 1 then
+          fn.setpos(".", { 0, 2, 1, 0 })
+        end
+      end
+    end,
+    buffer = bufnr,
+  })
+
   ctx:read_files()
 
   return ctx
@@ -107,14 +125,14 @@ function M:quit()
   -- Restoring to it would trigger BufEnter and reopen graphene
   if api.nvim_buf_is_valid(restore_buf) then
     local old_buf_name = api.nvim_buf_get_name(restore_buf)
-    local old_buf_type = api.nvim_buf_get_option(restore_buf, "buftype")
+    local old_buf_type = vim.bo[restore_buf].buftype
     if old_buf_type == "" and fn.isdirectory(old_buf_name) == 1 then
       -- old_buf is a directory buffer, find an alternative
       restore_buf = nil
       for _, buf in ipairs(api.nvim_list_bufs()) do
         if buf ~= self.bufnr and buf ~= self.old_buf and api.nvim_buf_is_valid(buf) and api.nvim_buf_is_loaded(buf) then
           local name = api.nvim_buf_get_name(buf)
-          local bt = api.nvim_buf_get_option(buf, "buftype")
+          local bt = vim.bo[buf].buftype
           -- Find a normal buffer that's not a directory
           if bt == "" and fn.isdirectory(name) == 0 then
             restore_buf = buf
@@ -187,12 +205,15 @@ function M:display(focus)
   a.util.scheduler()
   local bufnr = self.bufnr
 
-  api.nvim_buf_set_option(bufnr, "modifiable", true)
+  vim.bo[bufnr].modifiable = true
   local windows = vim.fn.win_findbuf(self.bufnr)
   local width = 120
   for _, w in ipairs(windows) do
     width = math.min(width, api.nvim_win_get_width(w))
   end
+
+  -- Generate header line
+  local header = icons.format_header(width)
 
   -- Fill
   local fmt = config.format_item
@@ -200,8 +221,11 @@ function M:display(focus)
     return fmt(item, width)
   end, self.items)
 
-  if #lines == 0 then
-    lines = { " --- empty ---" }
+  -- Prepend header
+  table.insert(lines, 1, header)
+
+  if #self.items == 0 then
+    table.insert(lines, " --- empty ---")
   end
 
   api.nvim_buf_set_lines(bufnr, 0, -1, true, lines)
@@ -209,18 +233,22 @@ function M:display(focus)
   local hi = config.options.highlight_items
   hi(self)
 
-  api.nvim_buf_set_option(bufnr, "modifiable", false)
+  vim.bo[bufnr].modifiable = false
 
   focus = focus or history[self.dir]
   if focus then
     self:focus(focus)
+  elseif #self.items > 0 then
+    -- Default cursor to first item (line 2, after header)
+    fn.setpos(".", { 0, 2, 1, 0 })
   end
 end
 
 function M:focus(name)
   for i, v in ipairs(self.items) do
     if v.name == name then
-      fn.setpos(".", { 0, i, 0, 0 })
+      -- +1 because header is on line 1, items start at line 2
+      fn.setpos(".", { 0, i + 1, 0, 0 })
       return
     end
   end
@@ -230,7 +258,8 @@ end
 function M:cur_item()
   local line = fn.getpos(".")[2]
 
-  return self.items[line]
+  -- -1 because header is on line 1, items start at line 2
+  return self.items[line - 1]
 end
 
 function M:cur_items()
@@ -240,9 +269,12 @@ function M:cur_items()
     local right = fn.line("v")
     local l = math.min(left, right)
     local r = math.max(left, right)
-    for i = l, r do
+    -- -1 because header is on line 1, items start at line 2
+    for i = l - 1, r - 1 do
       local item = self.items[i]
-      t[#t + 1] = item
+      if item then
+        t[#t + 1] = item
+      end
     end
     return t
   else
@@ -272,23 +304,28 @@ function M:toggle_select(item)
   self.selected[item.path] = not (self.selected[item.path] or false)
 end
 
----@param left number
----@param right number
+---@param left number line number (1-based, includes header offset)
+---@param right number line number (1-based, includes header offset)
 function M:toggle_range(left, right)
-  local l = math.min(left, right)
-  local r = math.max(left, right)
+  -- -1 because header is on line 1, items start at line 2
+  local l = math.min(left, right) - 1
+  local r = math.max(left, right) - 1
 
   local select = true
   for i = l, r do
     local item = self.items[i]
-    select = select and (self.selected[item.path] or false)
+    if item then
+      select = select and (self.selected[item.path] or false)
+    end
   end
 
   select = not select
 
   for i = l, r do
     local item = self.items[i]
-    self.selected[item.path] = select
+    if item then
+      self.selected[item.path] = select
+    end
   end
 end
 

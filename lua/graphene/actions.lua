@@ -5,6 +5,19 @@ local api = vim.api
 local uv = vim.loop
 local fn = vim.fn
 
+--- Check if currently in visual mode
+local function is_visual_mode()
+  local mode = api.nvim_get_mode().mode
+  return mode:lower() == "v" or mode == "V" or mode == "\22"
+end
+
+--- Exit visual mode if currently active
+local function exit_visual_mode()
+  if is_visual_mode() then
+    api.nvim_feedkeys(api.nvim_replace_termcodes("<Esc>", true, false, true), "n", false)
+  end
+end
+
 --- Open the item under the cursor
 ---@param ctx Context
 function M.edit(ctx, cmd)
@@ -61,22 +74,33 @@ function M.create(ctx)
       if not is_dir then
         vim.cmd("edit " .. fn.fnameescape(path))
       end
+      util.clear_gitignore_cache(ctx.dir)
       ctx:reload(name)
     end)
   )
 end
 local function open_external(path)
-  local job = vim.fn.jobstart({ "xdg-open", path }, {
-    detached = true,
+  local cmd
+  if vim.fn.has("mac") == 1 then
+    cmd = { "open", path }
+  elseif vim.fn.has("win32") == 1 then
+    cmd = { "cmd", "/c", "start", "", path }
+  else
+    -- Linux and other Unix-like systems
+    cmd = { "xdg-open", path }
+  end
+
+  local job = vim.fn.jobstart(cmd, {
+    detach = true,
     on_exit = function(_, code)
       if code ~= 0 then
-        vim.notify("Failed to execute xdg-open for " .. path, vim.log.levels.ERROR)
+        vim.notify("Failed to open " .. path, vim.log.levels.ERROR)
       end
     end,
   })
 
-  if job < 0 then
-    vim.notify("Failed to start xdg-open ", vim.log.levels.ERROR)
+  if job <= 0 then
+    vim.notify("Failed to start external open command", vim.log.levels.ERROR)
   end
 end
 
@@ -145,11 +169,13 @@ function M.rename(ctx)
         api.nvim_buf_set_name(buf, dst)
       end
 
-      if async.uv.fs_rename(path, dst) then
-        vim.notify("Failed to rename " .. cur.name .. " => " .. dst, vim.log.levels.ERROR)
+      local err = async.uv.fs_rename(path, dst)
+      if err then
+        vim.notify("Failed to rename " .. cur.name .. " => " .. dst .. ": " .. err, vim.log.levels.ERROR)
       end
 
       async.util.scheduler()
+      util.clear_gitignore_cache(ctx.dir)
       ctx:reload(dst:match(".-/"))
     end)
   )
@@ -164,8 +190,7 @@ end
 ---@param ctx Context
 function M.toggle_selected(ctx)
   local cur = ctx:cur_item()
-  local mode = api.nvim_get_mode().mode
-  if mode:lower() == "v" or mode == "V" or mode == "\22" then
+  if is_visual_mode() then
     local left = fn.line(".")
     local right = fn.line("v")
     ctx:toggle_range(left, right)
@@ -177,17 +202,15 @@ function M.toggle_selected(ctx)
   end
 
   ctx:reload(cur)
-  -- Exit visual mode if active
-  if mode:lower() == "v" or mode == "V" or mode == "\22" then
-    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "n", false)
-  end
+  exit_visual_mode()
 end
 
 ---@param item Item
 ---@param dst string
 local function rename(item, dst)
-  if not uv.fs_rename(item.path, dst) then
-    vim.notify("Failed to rename " .. item.path .. " => " .. dst, vim.log.levels.ERROR)
+  local ok, err = uv.fs_rename(item.path, dst)
+  if not ok then
+    vim.notify("Failed to rename " .. item.path .. " => " .. dst .. ": " .. (err or "unknown error"), vim.log.levels.ERROR)
   end
 end
 
@@ -210,31 +233,28 @@ local clipboard = require("graphene.clipboard")
 function M.yank(ctx)
   local items = ctx:cur_items()
   clipboard:set(items, copy)
+  local count = #items
+  vim.notify(string.format("%d %s copied to clipboard", count, count == 1 and "item" or "items"))
   ctx:clear_selected()
   ctx:reload()
-  -- Exit visual mode if active
-  local mode = vim.api.nvim_get_mode().mode
-  if mode:lower() == "v" or mode == "V" or mode == "\22" then
-    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "n", false)
-  end
+  exit_visual_mode()
 end
 
 ---@param ctx Context
 function M.cut(ctx)
   local items = ctx:cur_items()
   clipboard:set(items, rename)
+  local count = #items
+  vim.notify(string.format("%d %s cut to clipboard", count, count == 1 and "item" or "items"))
   ctx:clear_selected()
   ctx:reload()
-  -- Exit visual mode if active
-  local mode = vim.api.nvim_get_mode().mode
-  if mode:lower() == "v" or mode == "V" or mode == "\22" then
-    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "n", false)
-  end
+  exit_visual_mode()
 end
 
 ---@param ctx Context
 function M.clear_clipboard(ctx)
   clipboard:clear()
+  vim.notify("Clipboard cleared")
   ctx:reload()
 end
 
@@ -279,8 +299,11 @@ function M.paste(ctx)
     end
   end
 
+  local count = vim.tbl_count(clipboard.items)
+  vim.notify(string.format("%d %s pasted", count, count == 1 and "item" or "items"))
   clipboard:clear()
 
+  util.clear_gitignore_cache(ctx.dir)
   ctx:reload()
 end
 
@@ -289,7 +312,7 @@ function M.delete(ctx, force)
   local items = ctx:cur_items()
 
   for _, item in ipairs(items) do
-    if not items then
+    if not item then
       return
     end
 
@@ -321,6 +344,7 @@ function M.delete(ctx, force)
     end
   end
 
+  util.clear_gitignore_cache(ctx.dir)
   ctx:reload()
 end
 

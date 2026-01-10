@@ -5,7 +5,21 @@ local api = vim.api
 local config = require("graphene.config")
 local Context = require("graphene.context")
 
-local a = require("plenary.async")
+-- Check for required dependencies
+local has_plenary, a = pcall(require, "plenary.async")
+if not has_plenary then
+  vim.notify(
+    "graphene.nvim requires plenary.nvim. Please install it: https://github.com/nvim-lua/plenary.nvim",
+    vim.log.levels.ERROR
+  )
+  -- Return a stub module that does nothing
+  return {
+    setup = function() end,
+    init = function() end,
+    make_statusline = function() return function() return "" end end,
+    status = function() return {} end,
+  }
+end
 function M.init(dir)
   local cur_file = fn.expand("%:p:t")
 
@@ -20,7 +34,6 @@ function M.init(dir)
   -- Check if we're opening from a hidden file (starts with .)
   local force_show_hidden = cur_file:match("^%.") ~= nil
 
-  vim.notify("Opening " .. dir)
   a.run(function()
     local ctx = Context.new(dir)
 
@@ -71,8 +84,7 @@ function M.setup(opts)
 
     au({ "BufEnter" }, {
       callback = function(o)
-        if vim.fn.isdirectory(o.file) == 1 and api.nvim_buf_get_option(o.buf, "buftype") == "" then
-          vim.notify(string.format("%s is a directory", vim.inspect(o)))
+        if vim.fn.isdirectory(o.file) == 1 and vim.bo[o.buf].buftype == "" then
           M.init(o.file)
         end
       end,

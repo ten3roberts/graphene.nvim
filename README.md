@@ -1,15 +1,12 @@
 # Graphene
 
-A simple asynchronous file explorer.
+A simple dired for neovim.
 
-A developer should not be hindered by their file explorer.
+Like the material graphene, the file viewer focusing on being simple, modest, and displays you filestructure as a single flat format, focusing on your immediate surroundings and allow you to create, rename, or mass-manipulate your file as you navigate the file structure layer by layer.
 
-Graphene allows you to easily browse your project, folder by folder, creating
-files, moving them around, and perhaps most importantly: opening them.
+## Requirements
 
-Graphene is **not** a tree viewer. The mind only has so much capacity, and as
-such, Graphene focuses on your immediate surroundings letting you be focused on
-the files at hand.
+- [plenary.nvim](https://github.com/nvim-lua/plenary.nvim)
 
 ## Setup
 
@@ -45,9 +42,11 @@ require "graphene".setup {
     ["y"] = actions.yank,
     ["d"] = actions.cut,
     ["p"] = actions.paste,
-    ["<C-o>"] = actions.open_dir_external,
+    ["O"] = actions.open_dir_external,
     ["o"] = actions.open_external,
+    ["."] = actions.toggle_hidden,
   }
+}
 ```
 
 ## Usage
@@ -67,12 +66,36 @@ Graphene . " Open cwd
 Graphene is also accessible through a lua api, if desired.
 
 ```lua
-lua require"graphene".init([path])
+require"graphene".init([path])
 ```
+
+## Features
+
+### Hidden Files and Gitignore
+
+By default, hidden files (starting with `.`) and git-ignored files are not
+shown. Toggle visibility with `.` (or `actions.toggle_hidden`).
+
+When opening graphene from a hidden file, hidden files are automatically shown
+so the originating file is visible.
+
+### File Metadata
+
+In wider windows (80+ columns), graphene displays additional metadata:
+- File size (human-readable with SI prefixes)
+- Modification time
+- Permission mode (unix-style rwx)
+
+### Statusline Integration
+
+For statusline plugins, `require"graphene".status()` returns a table with:
+- `path`: The current directory path
+- `dirname`: The directory name only
+- `icon`: The directory icon
 
 ## Bulk File Operations
 
-At any point, or or more files can be selected with `,`.
+At any point, one or more files can be selected with `,`.
 
 Use `d` to cut the files.
 
@@ -87,15 +110,4 @@ marked items.
 The clipboard is shared between all graphene instances, which means you can
 copy, cut and paste between splits.
 
-Use `d` to cut the files.
-
-Navigate or create a folder and hit `p` to paste. The files will be moved to the
-new location.
-
-Use `y` to copy the marked files, and paste them with `p`.
-
-If in visual mode, the currently selected lines will be used instead of the
-marked items.
-
-The clipboard is shared between all graphene instances, which means you can
-copy, cut and paste between splits.
+Renaming to an existing file will prompt for confirmation before overwriting.
