@@ -3,6 +3,61 @@ local a = require("plenary.async")
 
 local uv = vim.loop
 
+-- Cache for git-ignored files per directory
+local gitignore_cache = {}
+
+--- Check if a directory is inside a git repository
+---@param dir string
+---@return string|nil git_root
+local function find_git_root(dir)
+  local current = dir
+  while current and current ~= "" and current ~= "/" do
+    if uv.fs_stat(current .. "/.git") then
+      return current
+    end
+    current = vim.fn.fnamemodify(current, ":h")
+  end
+  return nil
+end
+
+--- Get list of git-ignored files in a directory
+---@param dir string
+---@return table<string, boolean> ignored_files map of filename -> true
+local function get_gitignored_files(dir)
+  -- Check cache first
+  if gitignore_cache[dir] then
+    return gitignore_cache[dir]
+  end
+
+  local ignored = {}
+  local git_root = find_git_root(dir)
+
+  if git_root then
+    -- Use git check-ignore to get ignored files
+    -- Run synchronously since we're in async context anyway
+    local result = vim.fn.systemlist({ "git", "-C", dir, "ls-files", "--others", "--ignored", "--exclude-standard", "--directory" })
+    if vim.v.shell_error == 0 then
+      for _, file in ipairs(result) do
+        -- Remove trailing slash from directories
+        file = file:gsub("/$", "")
+        ignored[file] = true
+      end
+    end
+  end
+
+  gitignore_cache[dir] = ignored
+  return ignored
+end
+
+--- Clear gitignore cache for a directory (call after file operations)
+function M.clear_gitignore_cache(dir)
+  if dir then
+    gitignore_cache[dir] = nil
+  else
+    gitignore_cache = {}
+  end
+end
+
 --- Loads a directory into file items
 ---@param dir string
 ---@param show_hidden boolean
@@ -15,6 +70,13 @@ function M.readdir(dir, show_hidden)
 	end
 
 	real = real:gsub("/$", "")
+
+	-- Get gitignored files for this directory (only if not showing hidden)
+	local ignored_files = {}
+	if not show_hidden then
+		ignored_files = get_gitignored_files(real)
+	end
+
 	local err, dirent = a.wrap(function(cb)
 		uv.fs_opendir(real, cb, 4)
 	end, 1)()
@@ -29,7 +91,9 @@ function M.readdir(dir, show_hidden)
 		end
 
 		for _, v in ipairs(entries) do
-			if show_hidden or v.name:find("^%.") == nil then
+			-- Hide files that are git-ignored (when not showing hidden)
+			local is_ignored = ignored_files[v.name]
+			if show_hidden or not is_ignored then
 				local path = real .. "/" .. v.name
 				local err, stat = a.uv.fs_stat(path)
 				if not stat then

@@ -58,6 +58,21 @@ function M.highlight(ctx)
 		local icon = item.icon.icon
 		local len = #icon
 		a.nvim_buf_add_highlight(bufnr, namespace, item.icon.hl, i - 1, 0, len)
+
+		-- Highlight modtime in muted text (Comment highlight group)
+		if item.modtime_len and item.modtime_len > 0 then
+			local line = a.nvim_buf_get_lines(bufnr, i - 1, i, false)[1]
+			if line then
+				local line_len = #line
+				-- Find where the right-aligned content starts by looking for the modtime
+				-- The modtime is at the start of the right section after padding
+				local right_section_start = line:find("%d%d%d%d%-%d%d%-%d%d %d%d:%d%d:%d%d")
+				if right_section_start then
+					a.nvim_buf_add_highlight(bufnr, namespace, "Comment", i - 1, right_section_start - 1, right_section_start - 1 + item.modtime_len)
+				end
+			end
+		end
+
 		if ctx:is_selected(item) then
 			a.nvim_buf_add_highlight(bufnr, namespace, "String", i - 1, 0, -1)
 		end
@@ -100,18 +115,34 @@ function M.format(item, width)
 	item.icon = icon
 
 	local left = string.format("%s %s%s", icon.icon, item.name, item.type == "directory" and "/" or "")
-	local right
 
-	if item.type == "file" then
-		right = string.format("%6sB %s", prefixed(item.size), modmask(item.mode))
-	else
-		right = string.format("%s", modmask(item.mode))
+	-- Show modtime if window is wide enough (>80)
+	local modtime = ""
+	if width > 80 then
+		modtime = os.date("%Y-%m-%d %H:%M:%S", item.modified)
 	end
 
-	local padding = string.rep(" ", math.max(width - #left - #right - 1, 0))
+	local right
+	if item.type == "file" then
+		if modtime ~= "" then
+			right = string.format("%s  %6sB %s", modtime, prefixed(item.size), modmask(item.mode))
+		else
+			right = string.format("%6sB %s", prefixed(item.size), modmask(item.mode))
+		end
+	else
+		if modtime ~= "" then
+			right = string.format("%s  %s", modtime, modmask(item.mode))
+		else
+			right = string.format("%s", modmask(item.mode))
+		end
+	end
+
+	-- Store modtime length for highlighting
+	item.modtime_len = #modtime
+
+	local padding = string.rep(" ", math.max(width - vim.fn.strdisplaywidth(left) - vim.fn.strdisplaywidth(right) - 1, 0))
 
 	return left .. padding .. right
-	-- vim.fn.strftime("%c", item.modified)
 end
 
 return M

@@ -157,14 +157,15 @@ end
 
 ---@param ctx Context
 function M.toggle_hidden(ctx)
-  ctx.show_hidden = not ctx.show_hidden
+  ctx:set_show_hidden(not ctx.show_hidden)
   ctx:reload()
 end
 
 ---@param ctx Context
 function M.toggle_selected(ctx)
   local cur = ctx:cur_item()
-  if api.nvim_get_mode().mode:lower() == "v" then
+  local mode = api.nvim_get_mode().mode
+  if mode:lower() == "v" or mode == "V" or mode == "\22" then
     local left = fn.line(".")
     local right = fn.line("v")
     ctx:toggle_range(left, right)
@@ -176,6 +177,10 @@ function M.toggle_selected(ctx)
   end
 
   ctx:reload(cur)
+  -- Exit visual mode if active
+  if mode:lower() == "v" or mode == "V" or mode == "\22" then
+    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "n", false)
+  end
 end
 
 ---@param item Item
@@ -207,6 +212,11 @@ function M.yank(ctx)
   clipboard:set(items, copy)
   ctx:clear_selected()
   ctx:reload()
+  -- Exit visual mode if active
+  local mode = vim.api.nvim_get_mode().mode
+  if mode:lower() == "v" or mode == "V" or mode == "\22" then
+    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "n", false)
+  end
 end
 
 ---@param ctx Context
@@ -215,6 +225,11 @@ function M.cut(ctx)
   clipboard:set(items, rename)
   ctx:clear_selected()
   ctx:reload()
+  -- Exit visual mode if active
+  local mode = vim.api.nvim_get_mode().mode
+  if mode:lower() == "v" or mode == "V" or mode == "\22" then
+    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "n", false)
+  end
 end
 
 ---@param ctx Context

@@ -17,9 +17,19 @@ function M.init(dir)
     end
   end
 
+  -- Check if we're opening from a hidden file (starts with .)
+  local force_show_hidden = cur_file:match("^%.") ~= nil
+
   vim.notify("Opening " .. dir)
   a.run(function()
     local ctx = Context.new(dir)
+
+    -- If opening from a hidden file, force show hidden files
+    if force_show_hidden and not ctx.show_hidden then
+      ctx:set_show_hidden(true)
+      ctx:read_files()
+    end
+
     a.util.scheduler()
     api.nvim_win_set_buf(0, ctx.bufnr)
     ctx:display()

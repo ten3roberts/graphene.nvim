@@ -28,6 +28,9 @@ local fn = vim.fn
 
 local history = {}
 
+-- Global show_hidden state that persists across contexts
+local global_show_hidden = nil
+
 --- Create a new context (async)
 --- Reads files from the provided directory
 
@@ -49,13 +52,19 @@ function M.new(dir)
   api.nvim_buf_set_var(bufnr, "graphene_dir", d)
   api.nvim_buf_set_option(bufnr, "filetype", "graphene")
 
+  -- Use global state if set, otherwise use config default
+  local show_hidden = global_show_hidden
+  if show_hidden == nil then
+    show_hidden = config.show_hidden
+  end
+
   local ctx = {
     items = {},
     dir = d,
     bufnr = bufnr,
     old_buf = old_buf,
     old_win = old_win,
-    show_hidden = config.show_hidden,
+    show_hidden = show_hidden,
     selected = {},
   }
 
@@ -63,7 +72,7 @@ function M.new(dir)
 
   setmetatable(ctx, M)
 
-  api.nvim_create_autocmd({ "VimResized", "WinEnter", "BufEnter", "BufWinEnter" }, {
+  api.nvim_create_autocmd({ "VimResized", "WinResized", "WinEnter", "BufEnter", "BufWinEnter" }, {
     callback = a.void(function()
       ctx:display()
     end),
@@ -91,10 +100,39 @@ end
 function M:quit()
   self:add_history()
 
-  if api.nvim_buf_is_valid(self.old_buf) then
-    api.nvim_set_current_buf(self.old_buf)
+  local restore_buf = self.old_buf
+
+  -- Check if old_buf is a directory buffer pointing to the same directory
+  -- This happens when graphene was opened via `:e dir/`
+  -- Restoring to it would trigger BufEnter and reopen graphene
+  if api.nvim_buf_is_valid(restore_buf) then
+    local old_buf_name = api.nvim_buf_get_name(restore_buf)
+    local old_buf_type = api.nvim_buf_get_option(restore_buf, "buftype")
+    if old_buf_type == "" and fn.isdirectory(old_buf_name) == 1 then
+      -- old_buf is a directory buffer, find an alternative
+      restore_buf = nil
+      for _, buf in ipairs(api.nvim_list_bufs()) do
+        if buf ~= self.bufnr and buf ~= self.old_buf and api.nvim_buf_is_valid(buf) and api.nvim_buf_is_loaded(buf) then
+          local name = api.nvim_buf_get_name(buf)
+          local bt = api.nvim_buf_get_option(buf, "buftype")
+          -- Find a normal buffer that's not a directory
+          if bt == "" and fn.isdirectory(name) == 0 then
+            restore_buf = buf
+            break
+          end
+        end
+      end
+      -- Delete the directory buffer to prevent it from causing issues
+      api.nvim_buf_delete(self.old_buf, { force = true })
+    end
+  end
+
+  if restore_buf and api.nvim_buf_is_valid(restore_buf) then
+    api.nvim_set_current_buf(restore_buf)
   elseif api.nvim_win_is_valid(self.old_win) then
-    api.nvim_set_current_win(self.old_win)
+    -- Create a new empty buffer if no valid buffer found
+    local new_buf = api.nvim_create_buf(true, false)
+    api.nvim_set_current_buf(new_buf)
   end
 
   api.nvim_buf_delete(self.bufnr, {})
@@ -260,6 +298,12 @@ end
 
 function M:path(name)
   return self.dir .. "/" .. name
+end
+
+--- Set show_hidden for this context and persist globally
+function M:set_show_hidden(value)
+  self.show_hidden = value
+  global_show_hidden = value
 end
 
 return M
