@@ -78,6 +78,17 @@ function M.highlight(ctx)
 			if meta.modtime_start then
 				a.nvim_buf_add_highlight(bufnr, namespace, "Comment", line, meta.modtime_start, meta.modtime_end)
 			end
+
+			-- Permission icon highlights (colored based on permission level)
+			if meta.perms_hl and meta.perms_start then
+				local pos = meta.perms_start
+				for j, perm in ipairs(meta.perms_hl) do
+					local icon_len = #perm.icon
+					a.nvim_buf_add_highlight(bufnr, namespace, perm.hl, line, pos, pos + icon_len)
+					-- Move past icon + space separator (except for last icon)
+					pos = pos + icon_len + (j < #meta.perms_hl and 1 or 0)
+				end
+			end
 		end
 
 		-- Selected items override other highlights
@@ -91,7 +102,7 @@ end
 local ICON_WIDTH = 2 -- icon + space
 local MODTIME_WIDTH = 16 -- "Jan 10 2026 17:11"
 local SIZE_WIDTH = 7 -- "999.9kB" or "      -"
-local PERMS_WIDTH = 9 -- "rwxr-xr-x"
+-- PERMS_WIDTH is now dynamic via get_perms_width()
 local COL_SEP = 2 -- spaces between columns
 
 local function prefixed(val)
@@ -130,7 +141,8 @@ local function truncate(str, max_width)
 	return vim.fn.strcharpart(str, 0, low) .. "..."
 end
 
-local function modmask(bits)
+-- Permission formatting: symbolic style (rwxr-xr-x)
+local function modmask_symbolic(bits)
 	local t = {}
 	for _ = 1, 3 do
 		local s = (bit.band(bits, 4) == 4 and "r" or "-")
@@ -143,15 +155,133 @@ local function modmask(bits)
 	return table.concat(t)
 end
 
+-- Permission formatting: octal style (755)
+local function modmask_octal(bits)
+	-- Extract the lower 9 bits (rwxrwxrwx) and format as octal
+	local mode = bit.band(bits, 0x1FF) -- 0777 in octal = 0x1FF
+	return string.format("%03o", mode), nil
+end
+
+-- Permission icons (Nerd Font)
+-- \u{f013} = cog (execute)
+-- \u{f040} = pencil (write)
+-- \u{f06e} = eye (read)
+-- \u{f023} = lock (none)
+local PERM_ICON_EXEC = "\xef\x80\x93" -- U+F013 cog
+local PERM_ICON_WRITE = "\xef\x81\x80" -- U+F040 pencil
+local PERM_ICON_READ = "\xef\x81\xae" -- U+F06E eye
+local PERM_ICON_NONE = "\xef\x80\xa3" -- U+F023 lock
+
+-- Highlight groups for permission icons (Sign variants = no background)
+local PERM_HL_EXEC = "DiagnosticSignOk" -- green for execute
+local PERM_HL_WRITE = "DiagnosticSignWarn" -- yellow/orange for write
+local PERM_HL_READ = "DiagnosticSignInfo" -- blue for read
+local PERM_HL_NONE = "DiagnosticSignError" -- red for no perms
+
+-- Get icon and highlight for a permission triplet (3 bits)
+local function get_perm_icon_and_hl(triplet)
+	if bit.band(triplet, 1) == 1 then
+		return PERM_ICON_EXEC, PERM_HL_EXEC -- has execute (highest)
+	elseif bit.band(triplet, 2) == 2 then
+		return PERM_ICON_WRITE, PERM_HL_WRITE -- has write
+	elseif bit.band(triplet, 4) == 4 then
+		return PERM_ICON_READ, PERM_HL_READ -- has read only
+	else
+		return PERM_ICON_NONE, PERM_HL_NONE -- no permissions
+	end
+end
+
+-- Check if permissions are "normal" (owner has more or equal perms than group/others)
+-- Normal patterns: 644, 755, 700, 600, etc. where owner >= group >= others
+local function is_normal_perms(owner, group, others)
+	-- Others should not have more permissions than group
+	if others > group then
+		return false
+	end
+	-- Group should not have more permissions than owner
+	if group > owner then
+		return false
+	end
+	return true
+end
+
+-- Permission formatting: icons style (compact, shows single icon for normal files)
+-- Returns: formatted_string, highlights_table
+local function modmask_icons(bits)
+	local mode = bit.band(bits, 0x1FF) -- extract lower 9 bits
+
+	-- Extract individual triplets
+	local owner = bit.band(bit.rshift(mode, 6), 7)
+	local group = bit.band(bit.rshift(mode, 3), 7)
+	local others = bit.band(mode, 7)
+
+	-- For normal permission patterns, just show owner's permission level
+	-- This covers common cases like 644, 755, 700, 600, etc.
+	if is_normal_perms(owner, group, others) then
+		local icon, hl = get_perm_icon_and_hl(owner)
+		-- Single icon, padded to align with 3-icon case
+		-- 3 icons + 2 spaces = 5 display width, so pad with 4 spaces
+		return icon .. "    ", { { icon = icon, hl = hl } }
+	end
+
+	-- Unusual permissions - show all 3 to highlight the anomaly
+	local icons = {}
+	local highlights = {}
+
+	local icon, hl = get_perm_icon_and_hl(owner)
+	table.insert(icons, icon)
+	table.insert(highlights, { icon = icon, hl = hl })
+
+	icon, hl = get_perm_icon_and_hl(group)
+	table.insert(icons, icon)
+	table.insert(highlights, { icon = icon, hl = hl })
+
+	icon, hl = get_perm_icon_and_hl(others)
+	table.insert(icons, icon)
+	table.insert(highlights, { icon = icon, hl = hl })
+
+	return table.concat(icons, " "), highlights
+end
+
+-- Get the appropriate permission formatter based on config
+-- Returns: formatted_string, highlights_table (or nil)
+local function format_permissions(bits)
+	local config = require("graphene.config")
+	local style = config.permission_style or "symbolic"
+
+	if style == "octal" then
+		return modmask_octal(bits)
+	elseif style == "icons" then
+		return modmask_icons(bits)
+	else
+		return modmask_symbolic(bits), nil
+	end
+end
+
+-- Get permission column width based on style
+local function get_perms_width()
+	local config = require("graphene.config")
+	local style = config.permission_style or "symbolic"
+
+	if style == "octal" then
+		return 3 -- "755"
+	elseif style == "icons" then
+		return 5 -- max: 3 icons + 2 spaces (display width), or 1 icon when collapsed
+	else
+		return 9 -- "rwxr-xr-x"
+	end
+end
+
 --- Format the legend header line
 ---@param width number window width
 ---@return string header line
 function M.format_header(width)
 	-- Determine if we show modtime (window wide enough)
 	local show_modtime = width > 80
+	local perms_width = get_perms_width()
 
 	-- Calculate available width for name column (same logic as format())
-	local fixed_width = ICON_WIDTH + PERMS_WIDTH + SIZE_WIDTH + COL_SEP
+	local fixed_width = ICON_WIDTH + perms_width + SIZE_WIDTH + COL_SEP
 	if show_modtime then
 		fixed_width = fixed_width + MODTIME_WIDTH + COL_SEP
 	end
@@ -166,12 +296,11 @@ function M.format_header(width)
 		local modtime_header = string.format("%-" .. MODTIME_WIDTH .. "s", "Modified")
 		-- "Size" is 4 chars, SIZE_WIDTH is 7, right-align
 		local size_header = string.format("%" .. SIZE_WIDTH .. "s", "Size")
-		-- "Perms" is 5 chars, PERMS_WIDTH is 9
-		local perms_header = string.format("%-" .. PERMS_WIDTH .. "s", "Perms")
+		local perms_header = string.format("%-" .. perms_width .. "s", "Perms")
 		header = string.format("  %s%s  %s %s", name_header, modtime_header, size_header, perms_header)
 	else
 		local size_header = string.format("%" .. SIZE_WIDTH .. "s", "Size")
-		local perms_header = string.format("%-" .. PERMS_WIDTH .. "s", "Perms")
+		local perms_header = string.format("%-" .. perms_width .. "s", "Perms")
 		header = string.format("  %s%s %s", name_header, size_header, perms_header)
 	end
 
@@ -183,7 +312,7 @@ function M.format(item, width)
 	local icon = M.get(item)
 
 	if clipboard:find(item.path) ~= nil then
-		icon = { icon = "·", hl = "Keyword" }
+		icon = { icon = "\xc2\xb7", hl = "Keyword" } -- middle dot U+00B7
 	end
 
 	item.icon = icon
@@ -191,9 +320,10 @@ function M.format(item, width)
 
 	-- Determine if we show modtime (window wide enough)
 	local show_modtime = width > 80
+	local perms_width = get_perms_width()
 
 	-- Calculate available width for name column
-	local fixed_width = ICON_WIDTH + PERMS_WIDTH + SIZE_WIDTH + COL_SEP
+	local fixed_width = ICON_WIDTH + perms_width + SIZE_WIDTH + COL_SEP
 	if show_modtime then
 		fixed_width = fixed_width + MODTIME_WIDTH + COL_SEP
 	end
@@ -230,8 +360,8 @@ function M.format(item, width)
 		size = string.format("%7s", "-")
 	end
 
-	-- Format permissions
-	local perms = modmask(item.mode)
+	-- Format permissions (returns string and optional highlight info)
+	local perms, perms_hl = format_permissions(item.mode)
 
 	-- Build the line with icon
 	local left = string.format("%s %s", icon.icon, formatted_name)
@@ -239,9 +369,14 @@ function M.format(item, width)
 
 	-- Build right section
 	local right
+	local perms_start
 	if show_modtime then
+		-- perms starts after: left + modtime + "  " + size + " "
+		perms_start = left_byte_len + modtime_byte_len + 2 + #size + 1
 		right = string.format("%s  %s %s", modtime, size, perms)
 	else
+		-- perms starts after: left + size + " "
+		perms_start = left_byte_len + #size + 1
 		right = string.format("%s %s", size, perms)
 	end
 
@@ -250,6 +385,8 @@ function M.format(item, width)
 		icon_end = icon_byte_len,
 		modtime_start = modtime_byte_len > 0 and left_byte_len or nil,
 		modtime_end = modtime_byte_len > 0 and (left_byte_len + modtime_byte_len) or nil,
+		perms_start = perms_start,
+		perms_hl = perms_hl, -- array of {icon, hl} for each permission icon (nil for non-icons styles)
 	}
 
 	return left .. right

@@ -10,6 +10,7 @@ end
 
 ---@class graphene.config
 ---@field format_item function
+---@field permission_style "symbolic"|"icons"|"octal"
 local defaults = {
   format_item = require("graphene.icons").format,
   highlight_items = require("graphene.icons").highlight,
@@ -17,6 +18,7 @@ local defaults = {
   override_netrw = true,
   show_hidden = false,
   extended_folder_icons = true,
+  permission_style = "icons", -- "symbolic" (rwxr-xr-x), "icons" (nerd font), or "octal" (755)
   mappings = {
     ["<CR>"] = actions.edit,
     ["<Tab>"] = actions.edit,
