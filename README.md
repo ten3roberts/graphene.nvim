@@ -79,6 +79,8 @@ shown. Toggle visibility with `.` (or `actions.toggle_hidden`).
 When opening graphene from a hidden file, hidden files are automatically shown
 so the originating file is visible.
 
+![Screenshot](./res/screenshot.png)
+
 ### File Metadata
 
 In wider windows (80+ columns), graphene displays additional metadata:
